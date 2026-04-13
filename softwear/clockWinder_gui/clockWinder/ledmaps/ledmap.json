@@ -1,0 +1,42 @@
+{
+  "schema": "neopixel-clock-map/v1",
+  "num_pixels": 31,
+  "pixel_pin": 5,
+  "color_order": "GRB",
+  "phys_to_logical": [
+    "D1_E",
+    "D1_C",
+    "D1_G",
+    "D1_F",
+    "D1_B",
+    "D1_A",
+    "D2_A",
+    "D2_F",
+    "D2_B",
+    "D2_C",
+    "D2_D",
+    "D2_E",
+    "D2_G",
+    "COLON_TOP",
+    "COLON_BOTTOM",
+    "D3_F",
+    "D3_A",
+    "D3_B",
+    "D3_G",
+    "D3_E",
+    "D3_D",
+    "D3_C",
+    "D4_E",
+    "D4_F",
+    "D4_A",
+    "D4_B",
+    "D4_G",
+    "D4_C",
+    "D4_D",
+    "DECIMAL",
+    "D1_D"
+  ],
+  "notes": {
+    "digit_order": "D1 D2 : D3 D4"
+  }
+}
