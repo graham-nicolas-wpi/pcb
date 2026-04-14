@@ -7,18 +7,19 @@
 
 namespace {
 static void fillStatusEnvelope(DynamicJsonDocument& doc, SettingsStore& store,
-                               ClockRuntime& runtime, bool ok, const String& message) {
+                               HostRuntime& runtime, bool ok, const String& message) {
   JsonObject root = doc.to<JsonObject>();
   root["ok"] = ok;
   root["message"] = message;
   runtime.writeStatusJson(root.createNestedObject("status"), millis());
   runtime.writeRtcJson(root.createNestedObject("rtc"), millis());
+  runtime.writeRendererJson(root.createNestedObject("renderer"), millis());
   root["activePresetId"] = store.config().runtime.activePresetId;
   root["activeFaceId"] = store.config().runtime.activeFaceId;
 }
 }
 
-WebUiServer::WebUiServer(SettingsStore& store, ClockRuntime& runtime)
+WebUiServer::WebUiServer(SettingsStore& store, HostRuntime& runtime)
     : store_(store), runtime_(runtime), server_(80) {}
 
 void WebUiServer::begin() {
@@ -59,6 +60,7 @@ void WebUiServer::appendBootstrapJson(JsonObject root) {
   runtime_.writeInfoJson(root.createNestedObject("info"));
   runtime_.writeStatusJson(root.createNestedObject("status"), millis());
   runtime_.writeRtcJson(root.createNestedObject("rtc"), millis());
+  runtime_.writeRendererJson(root.createNestedObject("renderer"), millis());
   store_.writeConfigJson(root.createNestedObject("config"));
   store_.writeMetadataJson(root.createNestedObject("metadata"));
 
@@ -170,18 +172,18 @@ void WebUiServer::handleAction() {
   } else if (action == "rtc_set") {
     ok = runtime_.setRtc(DateTime(root["year"] | 2026, root["month"] | 1, root["day"] | 1,
                                   root["hour"] | 0, root["minute"] | 0, root["second"] | 0));
-  } else if (action == "calibration_mode") {
-    runtime_.setCalibrationMode(root["enabled"] | false);
-  } else if (action == "calibration_set") {
-    ok = runtime_.setCalibrationCursor(root["physical"] | 0);
-  } else if (action == "calibration_next") {
-    runtime_.nextCalibration(1);
-  } else if (action == "calibration_prev") {
-    runtime_.nextCalibration(-1);
-  } else if (action == "assign") {
-    ok = runtime_.assignLogical(root["logical"] | 0);
-  } else if (action == "unassign") {
-    runtime_.unassignCurrent();
+  } else if (action == "renderer_refresh") {
+    runtime_.requestRendererRefresh();
+  } else if (action == "renderer_control_host") {
+    runtime_.controlRendererHost();
+  } else if (action == "renderer_control_local") {
+    runtime_.controlRendererLocal();
+  } else if (action == "renderer_test_segments") {
+    runtime_.runRendererTestSegments();
+  } else if (action == "renderer_test_digits") {
+    runtime_.runRendererTestDigits();
+  } else if (action == "renderer_test_all") {
+    runtime_.runRendererTestAll();
   } else if (action == "save") {
     String error;
     ok = runtime_.saveConfigNow(&error);
@@ -190,12 +192,6 @@ void WebUiServer::handleAction() {
     String error;
     ok = runtime_.loadConfigNow(&error);
     if (!ok) message = error;
-  } else if (action == "test_segments") {
-    runtime_.testSegments();
-  } else if (action == "test_digits") {
-    runtime_.testDigits();
-  } else if (action == "test_all") {
-    runtime_.testAll();
   } else {
     ok = false;
     message = "Unknown action";
@@ -213,10 +209,10 @@ void WebUiServer::handleExportConfig() {
 
 void WebUiServer::handleExportMapping() {
   server_.sendHeader("Content-Disposition", "attachment; filename=\"clock-map.json\"");
-  server_.send(200, "application/json", store_.exportMappingJson());
+  server_.send(200, "application/json", runtime_.exportRendererMappingJson());
 }
 
 void WebUiServer::handleExportHeader() {
   server_.sendHeader("Content-Disposition", "attachment; filename=\"Generated_LedMap.h\"");
-  server_.send(200, "text/plain", store_.exportLedMapHeader());
+  server_.send(200, "text/plain", runtime_.exportRendererMapHeader());
 }

@@ -1,88 +1,78 @@
 # Firmware Overview
 
-This folder now contains two distinct firmware directions:
+This repo now has one permanent two-MCU product architecture:
 
-1. Leonardo-based Arduino IDE firmware for the current clock hardware
-2. ESP32-based PlatformIO firmware for the long-term overhaul
+- Leonardo on the custom PCB as the renderer/runtime coprocessor
+- ESP32 as the external host platform over header-accessible UART
 
-They share the same clock concept, but they solve different problems.
+## Leonardo Firmware
 
-## Arduino / Leonardo Firmware
+Folders:
 
-Current folders:
+- `arduino/clock_firmware/` - normal renderer runtime using `ClockRender/1`
+- `arduino/clock_calibration_firmware/` - calibration and map-writing firmware using `ClockCal/1`
 
-- `arduino/clock_firmware/` - normal runtime firmware
-- `arduino/clock_calibration_firmware/` - dedicated calibration / mapping firmware
+Leonardo responsibilities:
 
-### Leonardo hardware assumptions
+- render the 31 logical targets on the onboard WS2812 chain
+- keep physical mapping and calibration board-native
+- read the board buttons on `D8`, `D9`, `D10`
+- read the DS3231 over I2C
+- support stable runtime commands and `FRAME24` rendering
+- provide a useful local fallback mode when the ESP32 host is absent
 
-- 31 WS2812 LEDs on `D5`
-- active-low buttons on `D8`, `D9`, `D10`
-- DS3231 RTC on I2C
-- EEPROM used for saved mapping and settings
+Why runtime and calibration remain split:
 
-### Why it is split now
+- ATmega32U4 flash is tight
+- calibration tools are still important, but they do not belong in every everyday runtime build
+- keeping calibration separate makes the normal runtime leaner and more durable
 
-The Leonardo is tight on flash. Calibration features and test tooling are useful, but they are also expensive to keep linked into the everyday runtime build. Splitting calibration into its own sketch keeps the runtime leaner and makes future maintenance more manageable on ATmega32U4.
+## ESP32 Firmware
 
-### Runtime firmware responsibilities
-
-- render the 31-pixel logical display
-- run clock / timer / stopwatch / color demo modes
-- persist settings and mapping
-- read the DS3231 if present
-- expose the serial control surface used by the desktop GUI
-
-### Calibration firmware responsibilities
-
-- LED-by-LED mapping workflow
-- assignment and validation
-- map save/load
-- segment and digit tests
-- `ClockCal/1` style calibration handshake
-
-## Desktop App Relationship
-
-The current desktop app lives in:
-
-- `../softwear/clockWinder_gui/`
-
-It talks to the Leonardo firmware over serial and supports both runtime control and calibration workflows.
-
-## ESP32 PlatformIO Firmware
-
-Long-term folder:
+Folder:
 
 - `platformio/esp32_clock/`
 
-This is the expansion path for the project. It is designed around:
+ESP32 responsibilities:
 
-- ESP32-WROOM-32E
-- LittleFS-backed saved config
-- browser-based control UI served by the device
-- presets, widgets, faces, and effects
-- calibration and mapping in the web UI
-- serial compatibility for the existing command vocabulary where it still helps
+- own saved presets, faces, widgets, and schedules
+- own LittleFS config and browser-based UX
+- own NTP, network policy, and future integrations
+- own command generation toward the Leonardo renderer
+- compile high-level host features into stable renderer commands or `FRAME24`
 
-## Which One To Use
+The active ESP32 path no longer assumes direct control of the NeoPixel chain, button wiring, or RTC wiring on the custom board.
 
-### Use Leonardo firmware when:
+## Wiring Contract
 
-- you are working with the current existing clock board
-- you want the proven hardware path
-- you need Arduino IDE uploads and the current desktop GUI workflow
+Preferred host link:
 
-### Use the ESP32 project when:
+- ESP32 `GPIO17 TX` -> Leonardo `D0 / RX`
+- Leonardo `D1 / TX` -> ESP32 `GPIO16 RX` through level protection
+- common `GND`
 
-- you are exploring the long-term redesign
-- you want richer customization and web control
-- you want room for much larger features than Leonardo can comfortably hold
+This architecture avoids PCB redesign and avoids soldering to hidden custom-board traces.
 
-## Improvement Notes
+## Desktop App Relationship
 
-A few repo-wide improvements still worth doing:
+The desktop app in `../softwear/clockWinder_gui/` still matters for:
 
-- local PlatformIO compile/upload verification for the ESP32 project
-- screenshots and usage docs for the web UI
-- API/versioning notes for the ESP32 HTTP + serial interfaces
-- eventual cleanup of duplicated clock concepts between the Leonardo and ESP32 code paths once the long-term direction settles
+- direct Leonardo runtime control
+- calibration using the separate calibration sketch
+- bench testing and development
+
+The long-term primary UX for product features is the ESP32 web/API stack.
+
+## What To Use
+
+### Board bring-up
+
+Use Leonardo runtime plus the calibration sketch.
+
+### Product feature work
+
+Use the ESP32 PlatformIO project and treat the Leonardo as a renderer coprocessor.
+
+## Reference
+
+- canonical architecture and protocol: [../docs/leonardo-renderer-esp32-host.md](../docs/leonardo-renderer-esp32-host.md)

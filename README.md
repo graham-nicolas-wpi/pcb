@@ -1,106 +1,77 @@
 # Modular NeoPixel Smart Clock
 
-This repository contains the full project for a custom 4-digit NeoPixel clock:
+This repository contains the full clock project for a custom four-digit NeoPixel display board and its long-term two-MCU software stack.
 
-- custom PCB hardware
-- Leonardo-based firmware and calibration tools
-- a modular PySide6 desktop control app
-- an in-progress ESP32-first long-term architecture with on-device web UI
+## Permanent Hardware Direction
 
-The project started as a PCB course build and is now being pushed toward a more durable platform that can support richer faces, presets, widgets, network features, and future integrations.
+The custom PCB stays physically unchanged.
 
-## Current Structure
+- Arduino Leonardo remains on the board as the permanent renderer and board-native hardware controller
+- ESP32-WROOM-32E is the external high-level host platform
+- ESP32 talks to Leonardo over exposed header pins only
+- ESP32 does not directly drive `LED_DIN`
+- no PCB redesign and no soldering to hidden custom-board traces are part of the main plan
 
-### Hardware
+Preferred UART link:
+
+- ESP32 `GPIO17 TX` -> Leonardo `D0 / RX`
+- Leonardo `D1 / TX` -> ESP32 `GPIO16 RX` through a divider or level shifter
+- common `GND`
+
+## Repo Layout
 
 - `hardware/pcb/` - KiCad sources, fabrication outputs, schematic exports
+- `firmware/arduino/clock_firmware/` - Leonardo renderer runtime using the `ClockRender/1` protocol
+- `firmware/arduino/clock_calibration_firmware/` - Leonardo calibration and map-writing firmware using `ClockCal/1`
+- `firmware/platformio/esp32_clock/` - ESP32 host platform with web UI, storage, time/network logic, and renderer link control
+- `softwear/clockWinder_gui/` - desktop serial tools for Leonardo runtime and calibration workflows
+- `docs/leonardo-renderer-esp32-host.md` - canonical coprocessor architecture and serial/render contract
 
-### Arduino / Leonardo path
+## MCU Responsibilities
 
-- `firmware/arduino/clock_firmware/` - lean runtime firmware for the existing Leonardo clock
-- `firmware/arduino/clock_calibration_firmware/` - separate calibration/mapping firmware
+### Leonardo
 
-This path is the practical option for the current board as it exists today:
+The Leonardo is the stable board appliance:
 
-- 31 WS2812 LEDs on `D5`
-- 3 active-low buttons on `D8`, `D9`, `D10`
-- DS3231 RTC on I2C
-- EEPROM-backed settings and LED mapping
-- serial control from the desktop app
+- renders digits, colon, and decimal to the onboard NeoPixels
+- keeps LED mapping and physical calibration authoritative on-board
+- reads board buttons and RTC
+- exposes a compact serial contract
+- supports local fallback clock/timer/stopwatch behavior when no host is attached
 
-### Desktop GUI
+### ESP32
 
-- `softwear/clockWinder_gui/` - PySide6 + pySerial desktop app
+The ESP32 is the product brain:
 
-The desktop app supports:
-
-- serial connect / disconnect
-- runtime control for mode, brightness, colors, RTC, timer, stopwatch
-- calibration workflow and mapping table
-- JSON/header mapping exports
-- a modular package layout for future work
-
-### ESP32 path
-
-- `firmware/platformio/esp32_clock/` - long-term ESP32-WROOM-32E architecture
-
-This is the forward-looking direction for the project:
-
-- ESP32-driven runtime
-- LittleFS-backed saved config
-- Wi-Fi AP + optional STA mode
-- on-device browser UI
-- presets, widgets, faces, effects, and mapping storage
-- serial compatibility layer for existing tooling concepts
+- owns presets, faces, widgets, schedules, and runtime config
+- owns NTP, Wi-Fi, storage, browser UI, and future integrations
+- compiles rich features into stable renderer commands or `FRAME24` payloads
+- treats the Leonardo as a renderer coprocessor instead of replacing it
 
 ## Recommended Reading
 
-- Leonardo firmware overview: [firmware/README.md](firmware/README.md)
-- ESP32 project overview: [firmware/platformio/esp32_clock/README.md](firmware/platformio/esp32_clock/README.md)
-- ESP32 architecture notes: [firmware/platformio/esp32_clock/ARCHITECTURE.md](firmware/platformio/esp32_clock/ARCHITECTURE.md)
+- Firmware overview: [firmware/README.md](firmware/README.md)
+- Leonardo/ESP32 contract: [docs/leonardo-renderer-esp32-host.md](docs/leonardo-renderer-esp32-host.md)
+- ESP32 host overview: [firmware/platformio/esp32_clock/README.md](firmware/platformio/esp32_clock/README.md)
+- ESP32 host architecture: [firmware/platformio/esp32_clock/ARCHITECTURE.md](firmware/platformio/esp32_clock/ARCHITECTURE.md)
 - Desktop GUI notes: [softwear/clockWinder_gui/README.md](softwear/clockWinder_gui/README.md)
 
-## Where The Project Stands
+## Recommended Workflow
 
-### Leonardo path
+### Bring up the board renderer
 
-The Leonardo path is the stable path for the existing hardware, but it is now flash-constrained. Splitting calibration into its own firmware was the right move and buys more room, but long-term feature growth on ATmega32U4 will stay tight.
+1. Flash `firmware/arduino/clock_firmware/` to the Leonardo for normal operation
+2. Flash `firmware/arduino/clock_calibration_firmware/` only when you need to remap LEDs
+3. Use the desktop GUI for direct Leonardo control or calibration
 
-### ESP32 path
-
-The ESP32 path is the long-term expansion path. It is meant to become the main platform for:
-
-- richer faces and effects
-- saved presets and customization
-- web-based control instead of desktop-only control
-- future data sources and integrations
-
-Right now it is a strong architectural foundation, but it should still be treated as an active overhaul rather than the fully battle-tested shipping path.
-
-## Suggested Workflow
-
-### If you want the existing clock working now
-
-1. Use the Leonardo runtime firmware in `firmware/arduino/clock_firmware/`
-2. Use `firmware/arduino/clock_calibration_firmware/` only when mapping/calibration is needed
-3. Use the PySide6 desktop app in `softwear/clockWinder_gui/`
-
-### If you want the future platform
+### Build the long-term product platform
 
 1. Work in `firmware/platformio/esp32_clock/`
-2. Build out the ESP32 hardware around safe GPIO choices
-3. Treat the web UI, presets, widgets, and faces as the main control model going forward
+2. Connect the ESP32 to the Leonardo over the header UART link
+3. Add new features on the ESP32 and emit `ClockRender/1` commands or `FRAME24` frames
 
-## Immediate Improvement Ideas
+## Project Status
 
-- Add a real PlatformIO build/test pass for the ESP32 project in your local environment
-- Tighten the ESP32 docs and API contracts as the architecture settles
-- Decide whether the ESP32 will fully replace Leonardo or act as the system brain while Leonardo remains a display coprocessor for one transitional revision
-- Add screenshots / demo photos for both the GUI and ESP32 web UI
-- Clean up repository naming over time if you want to rename `softwear/` to `software/`, but only when you are ready to touch imports, paths, and references together
-
-## Notes
-
-- The Leonardo and ESP32 paths are intentionally both in the repo right now.
-- The ESP32 project is not just a port; it is a broader platform redesign.
-- The branch you are working on can carry docs and architecture that are more ESP32-oriented than `main`, which is expected.
+- The Leonardo runtime is now being stabilized as a durable renderer/runtime coprocessor.
+- The ESP32 project is the long-term expansion surface for nearly all new features.
+- The calibration workflow remains Leonardo-owned so physical board mapping stays tied to the actual renderer MCU.

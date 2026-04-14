@@ -233,17 +233,6 @@ RgbColor SettingsStore::readColor(JsonVariantConst value, const RgbColor& fallba
 }
 
 void SettingsStore::writeConfigJson(JsonObject root) const {
-  JsonObject hardware = root.createNestedObject("hardware");
-  hardware["pixelCount"] = config_.hardware.pixelCount;
-  hardware["pixelPin"] = config_.hardware.pixelPin;
-  hardware["rtcSda"] = config_.hardware.rtcSda;
-  hardware["rtcScl"] = config_.hardware.rtcScl;
-  hardware["colorOrder"] = config_.hardware.colorOrder;
-  JsonArray buttonPins = hardware.createNestedArray("buttonPins");
-  for (uint8_t pin : config_.hardware.buttonPins) {
-    buttonPins.add(pin);
-  }
-
   JsonObject network = root.createNestedObject("network");
   network["apSsid"] = config_.network.apSsid;
   network["apPassword"] = config_.network.apPassword;
@@ -251,6 +240,19 @@ void SettingsStore::writeConfigJson(JsonObject root) const {
   network["staSsid"] = config_.network.staSsid;
   network["staPassword"] = config_.network.staPassword;
   network["hostname"] = config_.network.hostname;
+
+  JsonObject rendererLink = root.createNestedObject("rendererLink");
+  rendererLink["baud"] = config_.rendererLink.baud;
+  rendererLink["txPin"] = config_.rendererLink.txPin;
+  rendererLink["rxPin"] = config_.rendererLink.rxPin;
+  rendererLink["buttonEvents"] = config_.rendererLink.buttonEvents;
+
+  JsonObject time = root.createNestedObject("time");
+  time["ntpEnabled"] = config_.time.ntpEnabled;
+  time["timezone"] = config_.time.timezone;
+  time["ntpPrimary"] = config_.time.ntpPrimary;
+  time["ntpSecondary"] = config_.time.ntpSecondary;
+  time["rtcSyncIntervalSeconds"] = config_.time.rtcSyncIntervalSeconds;
 
   JsonObject runtime = root.createNestedObject("runtime");
   runtime["mode"] = clockModeName(config_.runtime.mode);
@@ -261,16 +263,9 @@ void SettingsStore::writeConfigJson(JsonObject root) const {
   runtime["brightness"] = config_.runtime.brightness;
   runtime["colonBrightness"] = config_.runtime.colonBrightness;
   runtime["rainbowEnabled"] = config_.runtime.rainbowEnabled;
-  runtime["calibrationMode"] = config_.runtime.calibrationMode;
-  runtime["calibrationCursor"] = config_.runtime.calibrationCursor;
   runtime["timerPresetSeconds"] = config_.runtime.timerPresetSeconds;
   runtime["activePresetId"] = config_.runtime.activePresetId;
   runtime["activeFaceId"] = config_.runtime.activeFaceId;
-
-  JsonArray mapping = root.createNestedArray("mapping");
-  for (uint8_t index = 0; index < kNumPixels; ++index) {
-    mapping.add(config_.mapping.physToLogical[index]);
-  }
 
   JsonArray presets = root.createNestedArray("presets");
   for (size_t index = 0; index < config_.presetCount; ++index) {
@@ -341,6 +336,11 @@ void SettingsStore::writeMetadataJson(JsonObject root) const {
   hourModes.add("24H");
   hourModes.add("12H");
 
+  JsonObject rendererLink = root.createNestedObject("rendererLink");
+  rendererLink["defaultBaud"] = ProjectConfig::kDefaultRendererBaud;
+  rendererLink["defaultTxPin"] = ProjectConfig::kDefaultRendererTxPin;
+  rendererLink["defaultRxPin"] = ProjectConfig::kDefaultRendererRxPin;
+
   JsonArray secondsModes = root.createNestedArray("secondsModes");
   secondsModes.add("BLINK");
   secondsModes.add("ON");
@@ -400,6 +400,28 @@ bool SettingsStore::readConfig(JsonObjectConst root, bool& restartRequired, Stri
     updated.network.staSsid = String(static_cast<const char*>(network["staSsid"] | updated.network.staSsid.c_str()));
     updated.network.staPassword = String(static_cast<const char*>(network["staPassword"] | updated.network.staPassword.c_str()));
     updated.network.hostname = String(static_cast<const char*>(network["hostname"] | updated.network.hostname.c_str()));
+  }
+
+  JsonObjectConst rendererLink = root["rendererLink"];
+  if (!rendererLink.isNull()) {
+    updated.rendererLink.baud = rendererLink["baud"] | updated.rendererLink.baud;
+    updated.rendererLink.txPin = rendererLink["txPin"] | updated.rendererLink.txPin;
+    updated.rendererLink.rxPin = rendererLink["rxPin"] | updated.rendererLink.rxPin;
+    updated.rendererLink.buttonEvents =
+        rendererLink["buttonEvents"] | updated.rendererLink.buttonEvents;
+  }
+
+  JsonObjectConst time = root["time"];
+  if (!time.isNull()) {
+    updated.time.ntpEnabled = time["ntpEnabled"] | updated.time.ntpEnabled;
+    updated.time.timezone =
+        String(static_cast<const char*>(time["timezone"] | updated.time.timezone.c_str()));
+    updated.time.ntpPrimary =
+        String(static_cast<const char*>(time["ntpPrimary"] | updated.time.ntpPrimary.c_str()));
+    updated.time.ntpSecondary = String(
+        static_cast<const char*>(time["ntpSecondary"] | updated.time.ntpSecondary.c_str()));
+    updated.time.rtcSyncIntervalSeconds =
+        time["rtcSyncIntervalSeconds"] | updated.time.rtcSyncIntervalSeconds;
   }
 
   JsonObjectConst runtime = root["runtime"];
@@ -503,12 +525,9 @@ bool SettingsStore::readConfig(JsonObjectConst root, bool& restartRequired, Stri
   }
 
   config_ = updated;
-  restartRequired = (original.hardware.pixelPin != config_.hardware.pixelPin) ||
-                    (original.hardware.buttonPins[0] != config_.hardware.buttonPins[0]) ||
-                    (original.hardware.buttonPins[1] != config_.hardware.buttonPins[1]) ||
-                    (original.hardware.buttonPins[2] != config_.hardware.buttonPins[2]) ||
-                    (original.hardware.rtcSda != config_.hardware.rtcSda) ||
-                    (original.hardware.rtcScl != config_.hardware.rtcScl) ||
+  restartRequired = (original.rendererLink.baud != config_.rendererLink.baud) ||
+                    (original.rendererLink.txPin != config_.rendererLink.txPin) ||
+                    (original.rendererLink.rxPin != config_.rendererLink.rxPin) ||
                     (original.network.apSsid != config_.network.apSsid) ||
                     (original.network.apPassword != config_.network.apPassword) ||
                     (original.network.staEnabled != config_.network.staEnabled) ||
@@ -531,41 +550,5 @@ String SettingsStore::exportConfigJson() const {
   writeConfigJson(root);
   String output;
   serializeJsonPretty(doc, output);
-  return output;
-}
-
-String SettingsStore::exportMappingJson() const {
-  DynamicJsonDocument doc(8192);
-  JsonObject root = doc.to<JsonObject>();
-  root["schema"] = "esp32-neopixel-clock-map/v1";
-  root["pixelCount"] = config_.hardware.pixelCount;
-  root["pixelPin"] = config_.hardware.pixelPin;
-  root["colorOrder"] = config_.hardware.colorOrder;
-  JsonArray mapping = root.createNestedArray("mapping");
-  for (uint8_t index = 0; index < kNumPixels; ++index) {
-    JsonObject item = mapping.createNestedObject();
-    item["physical"] = index;
-    item["logical"] = config_.mapping.physToLogical[index];
-    item["name"] = logicalName(config_.mapping.physToLogical[index]);
-  }
-  String output;
-  serializeJsonPretty(doc, output);
-  return output;
-}
-
-String SettingsStore::exportLedMapHeader() const {
-  String output;
-  output += "#pragma once\n#include <stdint.h>\n\n";
-  output += "constexpr uint8_t kPhysToLogical[31] = {\n  ";
-  for (uint8_t index = 0; index < kNumPixels; ++index) {
-    output += String(config_.mapping.physToLogical[index]);
-    if (index + 1U < kNumPixels) {
-      output += ", ";
-    }
-    if ((index % 8U) == 7U && index + 1U < kNumPixels) {
-      output += "\n  ";
-    }
-  }
-  output += "\n};\n";
   return output;
 }

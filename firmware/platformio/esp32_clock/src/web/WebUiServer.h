@@ -3,12 +3,12 @@
 #include <Arduino.h>
 #include <WebServer.h>
 
-#include "../runtime/ClockRuntime.h"
+#include "../runtime/HostRuntime.h"
 #include "../storage/SettingsStore.h"
 
 class WebUiServer {
  public:
-  WebUiServer(SettingsStore& store, ClockRuntime& runtime);
+  WebUiServer(SettingsStore& store, HostRuntime& runtime);
 
   void begin();
   void update();
@@ -28,6 +28,6 @@ class WebUiServer {
   void appendBootstrapJson(JsonObject root);
 
   SettingsStore& store_;
-  ClockRuntime& runtime_;
+  HostRuntime& runtime_;
   WebServer server_;
 };

@@ -35,6 +35,8 @@ struct ColorPalette {
   RgbColor stopwatchSeconds;
 };
 
+// Legacy import compatibility only. The active ESP32 host runtime no longer owns board LEDs,
+// buttons, or RTC wiring directly.
 struct HardwareSettings {
   uint8_t pixelCount = ProjectConfig::kDefaultPixelCount;
   uint8_t pixelPin = ProjectConfig::kDefaultPixelPin;
@@ -55,6 +57,21 @@ struct NetworkSettings {
   String staSsid;
   String staPassword;
   String hostname = "neopixel-clock";
+};
+
+struct RendererLinkSettings {
+  uint32_t baud = ProjectConfig::kDefaultRendererBaud;
+  uint8_t txPin = ProjectConfig::kDefaultRendererTxPin;
+  uint8_t rxPin = ProjectConfig::kDefaultRendererRxPin;
+  bool buttonEvents = true;
+};
+
+struct TimeSettings {
+  bool ntpEnabled = true;
+  String timezone = "EST5EDT,M3.2.0/2,M11.1.0/2";
+  String ntpPrimary = "pool.ntp.org";
+  String ntpSecondary = "time.nist.gov";
+  uint32_t rtcSyncIntervalSeconds = 3600UL;
 };
 
 struct RuntimeSettings {
@@ -106,6 +123,7 @@ struct FaceDefinition {
   uint8_t widgetCount = 0;
 };
 
+// Legacy import compatibility only. Leonardo calibration remains the authoritative map writer.
 struct MappingSettings {
   uint8_t physToLogical[kNumPixels];
 };
@@ -113,6 +131,8 @@ struct MappingSettings {
 struct ClockConfig {
   HardwareSettings hardware;
   NetworkSettings network;
+  RendererLinkSettings rendererLink;
+  TimeSettings time;
   RuntimeSettings runtime;
   MappingSettings mapping;
   PresetDefinition presets[ProjectConfig::kMaxPresets];

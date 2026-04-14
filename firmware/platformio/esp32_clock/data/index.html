@@ -3,18 +3,18 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>NeoPixel Clock Studio</title>
+    <title>Clock Host Console</title>
     <link rel="stylesheet" href="/app.css" />
   </head>
   <body>
     <div class="app-shell">
       <header class="hero">
         <div>
-          <p class="eyebrow">ESP32 Clock Studio</p>
-          <h1>NeoPixel Clock Control Deck</h1>
+          <p class="eyebrow">ESP32 Host Console</p>
+          <h1>Clock Host Control Deck</h1>
           <p class="subcopy">
-            Configure presets, faces, widgets, mapping, timer modes, RTC, and effects directly
-            from the clock.
+            Configure the ESP32 host platform, then drive the Leonardo renderer over the board
+            headers without touching the custom PCB layout.
           </p>
         </div>
         <div class="hero-actions">
@@ -30,7 +30,7 @@
         <section class="card span-2">
           <div class="card-head">
             <h2>Runtime Control</h2>
-            <p>Mode, brightness, active preset, active face, and live effect behavior.</p>
+            <p>Mode, brightness, active preset, active face, and live effect behavior compiled into renderer frames.</p>
           </div>
           <div class="form-grid two-col">
             <label>
@@ -81,7 +81,7 @@
         <section class="card">
           <div class="card-head">
             <h2>Timer / Stopwatch / RTC</h2>
-            <p>Keep the original runtime controls, now in-browser.</p>
+            <p>Host-owned runtime controls, with RTC sync pushed down to the Leonardo renderer when needed.</p>
           </div>
           <div class="stack">
             <div class="timer-grid">
@@ -151,17 +151,13 @@
 
         <section class="card span-2">
           <div class="card-head">
-            <h2>Mapping & Calibration</h2>
-            <p>Calibrate physical LEDs, assign logical targets, validate, and export headers/JSON.</p>
+            <h2>Renderer Service</h2>
+            <p>Renderer link health, map validation, RTC status, and service tests. Remapping still belongs to the Leonardo calibration firmware.</p>
           </div>
           <div class="toolbar wrap">
-            <button id="calibrationEnableButton" class="button">Calibration On</button>
-            <button id="calibrationDisableButton" class="button secondary">Calibration Off</button>
-            <button id="calibrationPrevButton" class="button secondary">Prev LED</button>
-            <button id="calibrationNextButton" class="button secondary">Next LED</button>
-            <select id="assignLogicalSelect"></select>
-            <button id="assignLogicalButton" class="button">Assign Current</button>
-            <button id="unassignLogicalButton" class="button secondary">Unassign</button>
+            <button id="rendererRefreshButton" class="button">Refresh Renderer</button>
+            <button id="rendererHostButton" class="button secondary">Force Host Control</button>
+            <button id="rendererLocalButton" class="button secondary">Release To Local</button>
             <button id="testSegmentsButton" class="button secondary">Test Segments</button>
             <button id="testDigitsButton" class="button secondary">Test Digits</button>
             <button id="testAllButton" class="button secondary">Test All</button>
@@ -178,6 +174,7 @@
               <tbody id="mappingTableBody"></tbody>
             </table>
           </div>
+          <p class="small-note">Use the Leonardo calibration sketch when you need to change physical-to-logical assignments. This host UI only queries and exports the renderer map.</p>
           <div class="button-row">
             <a class="button secondary" href="/api/export/config.json">Export Config JSON</a>
             <a class="button secondary" href="/api/export/mapping.json">Export Mapping JSON</a>
@@ -187,8 +184,8 @@
 
         <section class="card">
           <div class="card-head">
-            <h2>Network</h2>
-            <p>Run the clock as its own access point, or add station credentials later.</p>
+            <h2>Network & Link</h2>
+            <p>Wi-Fi, UART renderer link, and time-source policy for the ESP32 host platform.</p>
           </div>
           <div class="form-grid" id="networkEditor"></div>
         </section>

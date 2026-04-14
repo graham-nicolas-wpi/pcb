@@ -98,7 +98,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.refresh_ports_button = QtWidgets.QPushButton("Refresh")
         self.connect_button = QtWidgets.QPushButton("Connect")
         self.disconnect_button = QtWidgets.QPushButton("Disconnect")
-        self.hello_button = QtWidgets.QPushButton("HELLO Clock/1")
+        self.hello_button = QtWidgets.QPushButton("HELLO ClockRender/1")
         self.info_button = QtWidgets.QPushButton("INFO?")
         self.status_button = QtWidgets.QPushButton("STATUS?")
         self.open_calibration_button = QtWidgets.QPushButton("Open Calibration Tool")
@@ -127,7 +127,7 @@ class MainWindow(QtWidgets.QMainWindow):
             lambda: self._queue_worker_call("disconnect_port")
         )
         self.hello_button.clicked.connect(
-            lambda: self._send_command(ClockProtocol.hello("Clock/1"))
+            lambda: self._send_command(ClockProtocol.hello("ClockRender/1"))
         )
         self.info_button.clicked.connect(lambda: self._send_command(ClockProtocol.info()))
         self.status_button.clicked.connect(lambda: self._send_command(ClockProtocol.status()))
@@ -412,7 +412,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.current_port = self.port_combo.currentText().strip()
             self._send_commands(
                 [
-                    ClockProtocol.hello("Clock/1"),
+                    ClockProtocol.hello("ClockRender/1"),
                     ClockProtocol.info(),
                     ClockProtocol.status(),
                     ClockProtocol.rtc_read(),
@@ -467,6 +467,12 @@ class MainWindow(QtWidgets.QMainWindow):
             if parsed.data.get("message") == "TIMER DONE":
                 self.statusBar().showMessage("Timer completed", 4000)
 
+        elif parsed.kind == "event":
+            if parsed.data.get("event") == "timer_done":
+                self.statusBar().showMessage("Timer completed", 4000)
+            elif parsed.data.get("event") == "host_timeout":
+                self.statusBar().showMessage("Renderer host control timed out", 4000)
+
         elif parsed.kind == "error":
             self.statusBar().showMessage(parsed.data.get("message", "Device error"), 5000)
 
@@ -477,7 +483,7 @@ class MainWindow(QtWidgets.QMainWindow):
             connection_message = "Connected" if self.connected else "Disconnected"
         self.status_panel.set_value("connection", connection_message)
         self.status_panel.set_value("port", self.current_port or "—")
-        self.status_panel.set_value("protocol", self.device_hello.protocol or "Clock/1")
+        self.status_panel.set_value("protocol", self.device_hello.protocol or "ClockRender/1")
         firmware = self.device_hello.name or "Runtime firmware"
         if self.device_hello.firmware_version:
             firmware = f"{firmware} {self.device_hello.firmware_version}".strip()

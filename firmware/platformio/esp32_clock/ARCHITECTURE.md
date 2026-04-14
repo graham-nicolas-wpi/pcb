@@ -1,76 +1,89 @@
-# ESP32 Architecture Notes
+# ESP32 Host Architecture
 
-This project is not meant to be a straight Leonardo port. It is a platform reset around the ESP32-WROOM-32E.
+This project is the high-level host half of a two-MCU system.
 
 ## Core Idea
 
-The ESP32 project is built around one persisted configuration model that owns:
+The ESP32 owns the evolving product model. The Leonardo owns the stable board-rendering contract.
 
-- hardware pin choices
-- Wi-Fi settings
-- LED mapping
-- presets
-- widgets
-- faces
-- active runtime state
+New product features should normally be added by:
 
-That model is loaded from LittleFS, edited through the browser UI, and consumed by the runtime and serial/API layers.
+1. extending host config and storage
+2. exposing the feature in the web/API layer
+3. compiling the result into a stable render frame or compact renderer command
 
-## Layers
+That keeps the Leonardo simple while letting the ESP32 change freely.
+
+## Active Layers
 
 ### `src/model`
 
-The data model lives in:
-
 - `src/model/ClockConfig.h`
 
-This is the contract for the rest of the project. If you add a major new feature, it usually belongs here first.
+This is the host-side persisted product model. The public config now centers on:
+
+- `network`
+- `rendererLink`
+- `time`
+- `runtime`
+- `presets`
+- `widgets`
+- `faces`
+
+Legacy direct-drive hardware and mapping fields remain only for backward config compatibility and are no longer the primary model.
 
 ### `src/storage`
 
 - `src/storage/SettingsStore.*`
 
-This layer persists the model to LittleFS as JSON and also provides export helpers for config, mapping JSON, and LED map headers.
+Persists the host model to LittleFS and performs config import/export.
 
-### `src/display`
+### `src/render`
 
-- `src/display/LogicalIds.h`
-- `src/display/LedMap.*`
-- `src/display/LogicalDisplay.*`
+- `src/render/SegmentFrame.*`
+- `src/render/FrameCompiler.*`
 
-This layer preserves the logical display abstraction from the Leonardo architecture so the rest of the runtime can keep thinking in terms of digits, colon, decimal, and logical segments rather than raw physical pixel indices.
+This layer is the stability boundary.
 
-### `src/hal`
+- `SegmentFrame` is the compact logical-target render model
+- `FrameCompiler` turns high-level presets, faces, widgets, and runtime state into that frame
 
-- `src/hal/Buttons.*`
-- `src/hal/PixelDriver_NeoPixel.*`
+Because the ESP32 compiles to this intermediate form, future features can grow without teaching the Leonardo what each feature means.
 
-This is the hardware access layer.
+### `src/host`
+
+- `src/host/LeonardoClient.*`
+
+This is the UART transport/client for `ClockRender/1`.
+
+Responsibilities:
+
+- hello/status/capability probing
+- renderer RTC and map reads
+- host/local control negotiation
+- async event handling
+- `FRAME24` transport
 
 ### `src/runtime`
 
-- `src/runtime/ClockRuntime.*`
+- `src/runtime/HostRuntime.*`
 
-This is the runtime heart of the project. It is responsible for:
+This is the orchestration layer for the host platform.
 
-- timer and stopwatch state
-- RTC usage
-- calibration cursor and mapping edits
-- preset / face / widget application
-- rendering decisions
-- on-device button behavior
+Responsibilities:
 
-### `src/protocol`
-
-- `src/protocol/SerialProtocol.*`
-
-This keeps a serial command surface available for continuity with the Leonardo era and for debugging / tooling.
+- host-owned timer and stopwatch behavior
+- time-source priority `NTP -> renderer RTC -> fallback`
+- periodic RTC sync back to the renderer
+- renderer health polling and control refresh
+- button event interpretation
+- render scheduling and frame submission
 
 ### `src/web`
 
 - `src/web/WebUiServer.*`
 
-This serves the browser UI and the HTTP API.
+Thin HTTP/API layer over the host runtime and config store.
 
 ### `data`
 
@@ -78,64 +91,28 @@ This serves the browser UI and the HTTP API.
 - `data/app.css`
 - `data/app.js`
 
-These are the static assets uploaded to LittleFS and served by the ESP32.
+The browser UI edits host config and renderer-link settings, shows renderer health, and triggers service actions. It is no longer a mapping editor for the custom board.
 
-## Faces, Widgets, Presets
+## Control Flow
 
-The first ESP32 version uses a composable approach.
+1. ESP32 boots and loads host config from LittleFS.
+2. `LeonardoClient` opens UART2 using the configured renderer link.
+3. `HostRuntime` discovers the renderer and requests host control.
+4. Host state is compiled into a `SegmentFrame`.
+5. The frame is sent as `FRAME24`.
+6. Leonardo renders the frame using its own logical-to-physical LED map.
 
-### Presets
+## Calibration Boundary
 
-Presets are saved color palettes plus a default effect tendency.
+Calibration is intentionally outside the normal ESP32 host flow.
 
-### Widgets
+- physical mapping edits belong to the Leonardo calibration sketch
+- the ESP32 host may query and export the renderer map
+- the ESP32 host should not become the primary writer of board calibration data
 
-Widgets are reusable display behaviors:
+## Design Rules
 
-- pulse colon
-- rainbow digits
-- timer warning
-- seconds spark
-- accent sweep
-
-### Faces
-
-Faces define:
-
-- base mode
-- default preset
-- effect
-- whether colon / decimal / seconds are shown
-- which widgets are attached
-
-This is intentionally simpler than a full scripting engine, but much easier to persist, edit, and stabilize.
-
-## Recommended Expansion Path
-
-If you keep growing the ESP32 project, a good next sequence is:
-
-1. get the PlatformIO build fully green locally
-2. verify LittleFS upload and browser UI round-trip on hardware
-3. stabilize the HTTP API and config schema
-4. improve the face/widget editor UX
-5. decide whether custom scripted faces are worth the added complexity
-
-## Design Constraints To Keep In Mind
-
-- avoid turning the config schema into a grab-bag of one-off flags
-- keep rendering logic centralized in the runtime layer
-- keep serial and web actions as thin wrappers over runtime operations
-- keep mapping/logical display abstractions intact
-- preserve migration paths from Leonardo concepts where it reduces friction
-
-## Recommended Mental Model
-
-Think of the ESP32 project as:
-
-- a device runtime
-- a saved configuration system
-- a local web application
-
-all living in the same firmware package.
-
-That is the biggest conceptual shift from the Leonardo path, and the docs should keep reinforcing it.
+- do not reintroduce direct LED driving on the ESP32 primary path
+- keep web actions thin and runtime-driven
+- treat `SegmentFrame` and `ClockRender/1` as the stable renderer contract
+- keep feature growth on the host side whenever possible

@@ -2,6 +2,7 @@ const state = {
   info: null,
   status: null,
   rtc: null,
+  renderer: null,
   network: null,
   metadata: null,
   config: null,
@@ -83,7 +84,8 @@ function renderStatusRibbon() {
     ["Face", state.status.activeFaceId],
     ["Timer", `${state.status.timerRemainingSeconds}s ${state.status.timerRunning ? "running" : "idle"}`],
     ["Stopwatch", state.status.stopwatchRunning ? "running" : "idle"],
-    ["RTC", state.rtc?.present ? state.rtc.summary : "missing"],
+    ["RTC", `${state.rtc?.summary || "unknown"} (${state.rtc?.source || "fallback"})`],
+    ["Renderer", state.renderer?.connected ? "online" : "offline"],
     ["AP", state.network.apIp || "192.168.4.1"],
     ["Board", state.info.board],
   ]
@@ -373,57 +375,44 @@ function renderWidgetEditor() {
 function renderMapping() {
   const body = q("mappingTableBody");
   body.innerHTML = "";
-  const targets = [{ id: 255, name: "UNUSED" }, ...state.metadata.logicalTargets];
-  state.config.mapping.forEach((logical, physical) => {
+  const mapping = state.renderer?.mapping || [];
+  mapping.forEach((logical, physical) => {
+    const name =
+      logical === 255
+        ? "UNUSED"
+        : state.metadata.logicalTargets.find((target) => Number(target.id) === Number(logical))
+            ?.name || `LOGICAL ${logical}`;
     const row = document.createElement("tr");
     row.innerHTML = `
       <td>${physical}</td>
-      <td>
-        <select data-physical="${physical}">
-          ${targets
-            .map(
-              (target) =>
-                `<option value="${target.id}" ${
-                  Number(target.id) === Number(logical) ? "selected" : ""
-                }>${target.name}</option>`,
-            )
-            .join("")}
-        </select>
-      </td>
+      <td>${name}</td>
     `;
     body.appendChild(row);
   });
-
-  body.querySelectorAll("select").forEach((select) => {
-    select.addEventListener("change", (event) => {
-      state.config.mapping[Number(event.target.dataset.physical)] = Number(event.target.value);
-      renderMappingSummary();
-    });
-  });
-
-  fillSelect(
-    q("assignLogicalSelect"),
-    targets.map((item) => String(item.id)),
-    "255",
-    (value) => targets.find((item) => String(item.id) === value)?.name || value,
-  );
   renderMappingSummary();
 }
 
 function renderMappingSummary() {
+  const mapping = state.renderer?.mapping || [];
+  if (!mapping.length) {
+    q("mappingSummary").textContent = "Renderer map not available yet. Refresh the renderer link after it comes online.";
+    return;
+  }
   const used = new Map();
-  state.config.mapping.forEach((logical, physical) => {
+  mapping.forEach((logical, physical) => {
     if (logical === 255) return;
     if (!used.has(logical)) used.set(logical, []);
     used.get(logical).push(physical);
   });
   const duplicates = [...used.entries()].filter(([, physical]) => physical.length > 1);
-  const assigned = state.config.mapping.filter((logical) => logical !== 255).length;
-  q("mappingSummary").textContent = `Assigned ${assigned}/31 LEDs. Duplicate groups: ${duplicates.length}. Calibration cursor: ${state.status?.calibrationCursor ?? 0}.`;
+  const assigned = mapping.filter((logical) => logical !== 255).length;
+  q("mappingSummary").textContent = `Renderer ${state.renderer?.connected ? "online" : "offline"}. Control: ${state.renderer?.status?.control || "unknown"}. Frame source: ${state.renderer?.status?.frame || "unknown"}. Assigned ${assigned}/31 LEDs. Duplicate groups: ${duplicates.length}. Map valid: ${state.renderer?.status?.mapValid ? "yes" : "no"}.`;
 }
 
 function renderNetworkEditor() {
   const network = state.config.network;
+  const rendererLink = state.config.rendererLink;
+  const time = state.config.time;
   q("networkEditor").innerHTML = `
     <label><span>Access Point SSID</span><input id="networkApSsid" value="${network.apSsid}" /></label>
     <label><span>Access Point Password</span><input id="networkApPassword" value="${network.apPassword}" /></label>
@@ -433,7 +422,20 @@ function renderNetworkEditor() {
     <label><span>Station SSID</span><input id="networkStaSsid" value="${network.staSsid}" /></label>
     <label><span>Station Password</span><input id="networkStaPassword" value="${network.staPassword}" /></label>
     <label><span>Hostname</span><input id="networkHostname" value="${network.hostname}" /></label>
-    <p class="small-note">Network and hardware pin changes may require reboot to fully apply.</p>
+    <label><span>Renderer Baud</span><input id="rendererBaud" type="number" min="9600" max="921600" value="${rendererLink.baud}" /></label>
+    <label><span>Renderer TX Pin</span><input id="rendererTxPin" type="number" min="0" max="39" value="${rendererLink.txPin}" /></label>
+    <label><span>Renderer RX Pin</span><input id="rendererRxPin" type="number" min="0" max="39" value="${rendererLink.rxPin}" /></label>
+    <label class="check-row"><span>Forward Leonardo Button Events</span><input id="rendererButtonEvents" type="checkbox" ${
+      rendererLink.buttonEvents ? "checked" : ""
+    } /></label>
+    <label class="check-row"><span>Enable NTP</span><input id="timeNtpEnabled" type="checkbox" ${
+      time.ntpEnabled ? "checked" : ""
+    } /></label>
+    <label><span>Timezone</span><input id="timeTimezone" value="${time.timezone}" /></label>
+    <label><span>Primary NTP Server</span><input id="timeNtpPrimary" value="${time.ntpPrimary}" /></label>
+    <label><span>Secondary NTP Server</span><input id="timeNtpSecondary" value="${time.ntpSecondary}" /></label>
+    <label><span>RTC Sync Interval (s)</span><input id="timeRtcSyncInterval" type="number" min="60" max="86400" value="${time.rtcSyncIntervalSeconds}" /></label>
+    <p class="small-note">Network and renderer link changes may require reboot to fully apply.</p>
   `;
 
   q("networkApSsid").addEventListener("input", (event) => {
@@ -453,6 +455,33 @@ function renderNetworkEditor() {
   });
   q("networkHostname").addEventListener("input", (event) => {
     network.hostname = event.target.value;
+  });
+  q("rendererBaud").addEventListener("input", (event) => {
+    rendererLink.baud = Number(event.target.value || rendererLink.baud);
+  });
+  q("rendererTxPin").addEventListener("input", (event) => {
+    rendererLink.txPin = Number(event.target.value || rendererLink.txPin);
+  });
+  q("rendererRxPin").addEventListener("input", (event) => {
+    rendererLink.rxPin = Number(event.target.value || rendererLink.rxPin);
+  });
+  q("rendererButtonEvents").addEventListener("change", (event) => {
+    rendererLink.buttonEvents = event.target.checked;
+  });
+  q("timeNtpEnabled").addEventListener("change", (event) => {
+    time.ntpEnabled = event.target.checked;
+  });
+  q("timeTimezone").addEventListener("input", (event) => {
+    time.timezone = event.target.value;
+  });
+  q("timeNtpPrimary").addEventListener("input", (event) => {
+    time.ntpPrimary = event.target.value;
+  });
+  q("timeNtpSecondary").addEventListener("input", (event) => {
+    time.ntpSecondary = event.target.value;
+  });
+  q("timeRtcSyncInterval").addEventListener("input", (event) => {
+    time.rtcSyncIntervalSeconds = Number(event.target.value || time.rtcSyncIntervalSeconds);
   });
 }
 
@@ -612,35 +641,23 @@ function bindStaticControls() {
     );
   });
 
-  q("calibrationEnableButton").addEventListener("click", () =>
-    runAction({ action: "calibration_mode", enabled: true }, "Calibration mode enabled"),
+  q("rendererRefreshButton").addEventListener("click", () =>
+    runAction({ action: "renderer_refresh" }, "Renderer refresh requested"),
   );
-  q("calibrationDisableButton").addEventListener("click", () =>
-    runAction({ action: "calibration_mode", enabled: false }, "Calibration mode disabled"),
+  q("rendererHostButton").addEventListener("click", () =>
+    runAction({ action: "renderer_control_host" }, "Renderer forced into host control"),
   );
-  q("calibrationPrevButton").addEventListener("click", () =>
-    runAction({ action: "calibration_prev" }, "Moved to previous LED"),
-  );
-  q("calibrationNextButton").addEventListener("click", () =>
-    runAction({ action: "calibration_next" }, "Moved to next LED"),
-  );
-  q("assignLogicalButton").addEventListener("click", () =>
-    runAction(
-      { action: "assign", logical: Number(q("assignLogicalSelect").value) },
-      "Assigned current calibration target",
-    ),
-  );
-  q("unassignLogicalButton").addEventListener("click", () =>
-    runAction({ action: "unassign" }, "Unassigned current calibration target"),
+  q("rendererLocalButton").addEventListener("click", () =>
+    runAction({ action: "renderer_control_local" }, "Renderer released to local control"),
   );
   q("testSegmentsButton").addEventListener("click", () =>
-    runAction({ action: "test_segments" }, "Running segment test"),
+    runAction({ action: "renderer_test_segments" }, "Running renderer segment test"),
   );
   q("testDigitsButton").addEventListener("click", () =>
-    runAction({ action: "test_digits" }, "Running digit test"),
+    runAction({ action: "renderer_test_digits" }, "Running renderer digit test"),
   );
   q("testAllButton").addEventListener("click", () =>
-    runAction({ action: "test_all" }, "Running full test"),
+    runAction({ action: "renderer_test_all" }, "Running full renderer test"),
   );
 
   q("saveConfigButton").addEventListener("click", saveConfig);
@@ -653,7 +670,9 @@ async function runAction(payload, successMessage) {
     const response = await postJson("/api/action", payload);
     state.status = response.status;
     state.rtc = response.rtc;
+    state.renderer = response.renderer;
     renderStatusRibbon();
+    renderMapping();
     log(successMessage || response.message || payload.action);
   } catch (error) {
     log(error.message);
@@ -665,6 +684,7 @@ async function saveConfig() {
     const response = await postJson("/api/config", state.config);
     state.status = response.status;
     state.rtc = response.rtc;
+    state.renderer = response.renderer;
     log(response.restartRequired ? "Configuration saved. Restart recommended." : "Configuration saved.");
     await refreshBootstrap(false, true);
   } catch (error) {
@@ -678,6 +698,7 @@ async function refreshBootstrap(logRefresh = true, forceReplace = false) {
     state.info = data.info;
     state.status = data.status;
     state.rtc = data.rtc;
+    state.renderer = data.renderer;
     state.metadata = data.metadata;
     state.network = data.network;
     if (!state.config || logRefresh || forceReplace) {
@@ -694,16 +715,17 @@ async function boot() {
   bindStaticControls();
   await refreshBootstrap(false, true);
   renderEverything();
-  log("Clock Studio ready");
+  log("Clock Host Console ready");
   window.setInterval(async () => {
     try {
       const data = await getJson("/api/bootstrap");
       state.info = data.info;
       state.status = data.status;
       state.rtc = data.rtc;
+      state.renderer = data.renderer;
       state.network = data.network;
       renderStatusRibbon();
-      renderMappingSummary();
+      renderMapping();
     } catch (error) {
       log(error.message);
     }

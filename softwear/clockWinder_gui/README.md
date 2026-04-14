@@ -1,6 +1,6 @@
 # ClockWinder Desktop GUI
 
-This is the PySide6 desktop control app for the clock project.
+This is the PySide6 desktop serial tool for the clock project.
 
 Entry point:
 
@@ -12,10 +12,10 @@ Main package:
 
 ## What it does
 
-The GUI is the desktop-side console for the Leonardo-era clock workflow. It supports:
+The GUI is the desktop-side console for Leonardo runtime and calibration workflows. It supports:
 
 - serial connection with `pyserial`
-- `HELLO`, `INFO?`, and `STATUS?`
+- `ClockRender/1` runtime hello/status/info
 - calibration mode workflow
 - mapping table editing
 - JSON and header export
@@ -56,8 +56,9 @@ This app is still very relevant for the Leonardo firmware path.
 
 For the long-term ESP32 path, the plan is different:
 
-- the clock serves its own browser UI
-- the ESP32 becomes the main configuration surface
+- the ESP32 serves its own browser UI
+- the ESP32 becomes the main high-level configuration surface
+- the Leonardo remains the board-native renderer under that host
 - the desktop GUI becomes optional rather than mandatory
 
 That means this app should stay clean and usable, but it does not need to become the long-term primary UX if the ESP32 web path takes over.

@@ -20,8 +20,6 @@ class SettingsStore {
   bool updateFromJson(JsonObjectConst root, bool& restartRequired, String& error);
 
   String exportConfigJson() const;
-  String exportMappingJson() const;
-  String exportLedMapHeader() const;
 
  private:
   static constexpr const char* kConfigPath = "/clock-config.json";
