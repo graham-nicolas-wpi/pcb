@@ -1,146 +1,88 @@
-# ClockCal starter project
+# Firmware Overview
 
-This is a generated starter project for your NeoPixel four-digit clock.
+This folder now contains two distinct firmware directions:
 
-## Hardware assumptions
-- Arduino Leonardo / ATmega32U4
+1. Leonardo-based Arduino IDE firmware for the current clock hardware
+2. ESP32-based PlatformIO firmware for the long-term overhaul
+
+They share the same clock concept, but they solve different problems.
+
+## Arduino / Leonardo Firmware
+
+Current folders:
+
+- `arduino/clock_firmware/` - normal runtime firmware
+- `arduino/clock_calibration_firmware/` - dedicated calibration / mapping firmware
+
+### Leonardo hardware assumptions
+
 - 31 WS2812 LEDs on `D5`
-- 3 active-low buttons on `D8`, `D9`, `D10`
-- Future DS3231 RTC on I2C
+- active-low buttons on `D8`, `D9`, `D10`
+- DS3231 RTC on I2C
+- EEPROM used for saved mapping and settings
 
-## Folder layout
-- `firmware/ClockCal_Firmware/` — Arduino firmware starter
-- `gui/clockcal_tool.py` — desktop calibration GUI starter
-- `gui/requirements.txt` — Python dependencies
+### Why it is split now
 
-## First steps
-1. Install Arduino library `Adafruit NeoPixel`.
-2. Open `ClockCal_Firmware.ino` in Arduino IDE.
-3. Upload to your Leonardo.
-4. In Serial Monitor, try:
-   - `HELLO ClockCal/1`
-   - `INFO?`
-   - `NEXT`
-   - `ASSIGN 0`
-   - `MAP?`
-   - `TEST SEGMENTS`
-5. For the GUI:
-   - `pip install -r gui/requirements.txt`
-   - `python gui/clockcal_tool.py`
+The Leonardo is tight on flash. Calibration features and test tooling are useful, but they are also expensive to keep linked into the everyday runtime build. Splitting calibration into its own sketch keeps the runtime leaner and makes future maintenance more manageable on ATmega32U4.
 
-## Notes
-- `Generated_LedMap.h` starts as an identity-map placeholder.
-- After calibration, export a real header from the GUI and replace it.
+### Runtime firmware responsibilities
 
-# Firmware
+- render the 31-pixel logical display
+- run clock / timer / stopwatch / color demo modes
+- persist settings and mapping
+- read the DS3231 if present
+- expose the serial control surface used by the desktop GUI
 
-This folder contains the Arduino-side firmware for the **Modular NeoPixel Smart Clock**.
+### Calibration firmware responsibilities
 
-The firmware is responsible for driving the 31-pixel 4-digit display, handling button input, reading and writing RTC time, storing settings, and responding to commands from the desktop GUI.
+- LED-by-LED mapping workflow
+- assignment and validation
+- map save/load
+- segment and digit tests
+- `ClockCal/1` style calibration handshake
 
-## Current hardware target
+## Desktop App Relationship
 
-- **Arduino Leonardo / ATmega32U4**
-- **31 WS2812 / NeoPixel LEDs** on `D5`
-- **3 active-low buttons** on `D8`, `D9`, and `D10`
-- **DS3231 RTC** on I2C
+The current desktop app lives in:
 
-## Purpose of this firmware
+- `../softwear/clockWinder_gui/`
 
-The firmware is meant to grow beyond a one-off class sketch into a cleaner modular clock codebase.
+It talks to the Leonardo firmware over serial and supports both runtime control and calibration workflows.
 
-Current goals:
+## ESP32 PlatformIO Firmware
 
-- drive the custom 4-digit NeoPixel clock display
-- support saved logical LED mapping
-- support RTC-backed timekeeping
-- provide timer and stopwatch modes
-- support configurable colors and brightness
-- support serial control from the desktop GUI
-- keep the architecture clean enough to expand later
-
-## Expected structure
-
-This firmware area is being cleaned up into a more modular layout.
-
-Planned structure:
-
-- `arduino/` — Arduino IDE project files
-- `src/hal/` — hardware abstraction layers like buttons, pixels, and RTC
-- `src/display/` — logical IDs, LED mapping, and display rendering
-- `src/calibration/` — calibration protocol and mapping control
-- `src/settings/` — EEPROM-backed settings and profiles
-- `src/ui/` — mode handling and state machine logic
-- `src/faces/` — clock face and mode-specific rendering
-
-## Current important files
-
-Examples of the files this firmware area is centered around:
-
-- `ClockCal_Firmware.ino` or renamed firmware entry file
-- `Generated_LedMap.h`
-- button handling files
-- logical display / mapping files
-- calibration controller files
-- RTC support files
-
-## New ESP32 direction
-
-There is now a separate long-term ESP32-first project under:
+Long-term folder:
 
 - `platformio/esp32_clock/`
 
-That project is the forward-looking architecture for:
+This is the expansion path for the project. It is designed around:
 
-- ESP32-WROOM-32E driven runtime
-- on-device web UI
-- saved presets, widgets, and faces
-- Wi-Fi based customization
-- richer long-term expansion beyond Leonardo flash limits
+- ESP32-WROOM-32E
+- LittleFS-backed saved config
+- browser-based control UI served by the device
+- presets, widgets, faces, and effects
+- calibration and mapping in the web UI
+- serial compatibility for the existing command vocabulary where it still helps
 
-## Hardware assumptions
+## Which One To Use
 
-### Display and buttons
+### Use Leonardo firmware when:
 
-- NeoPixel data line -> `D5`
-- Button 1 -> `D8`
-- Button 2 -> `D9`
-- Button 3 -> `D10`
-- buttons are active-low and connect to GND when pressed
+- you are working with the current existing clock board
+- you want the proven hardware path
+- you need Arduino IDE uploads and the current desktop GUI workflow
 
-### DS3231 RTC
+### Use the ESP32 project when:
 
-- `VCC` -> `5V`
-- `GND` -> `GND`
-- `SDA` -> `D2 / SDA`
-- `SCL` -> `D3 / SCL`
+- you are exploring the long-term redesign
+- you want richer customization and web control
+- you want room for much larger features than Leonardo can comfortably hold
 
-## Basic workflow
+## Improvement Notes
 
-1. Open the firmware project in Arduino IDE.
-2. Select **Arduino Leonardo**.
-3. Install the required libraries.
-4. Upload the firmware.
-5. Connect with the desktop GUI or Serial Monitor.
-6. Verify the mapping, RTC, and display modes.
+A few repo-wide improvements still worth doing:
 
-## Useful serial commands
-
-Examples:
-
-- `HELLO ClockCal/1`
-- `INFO?`
-- `STATUS?`
-- `NEXT`
-- `PREV`
-- `ASSIGN 0`
-- `MAP?`
-- `TEST SEGMENTS`
-- `TEST DIGITS`
-- `SAVE`
-
-## Notes
-
-- `Generated_LedMap.h` should eventually contain the real calibrated logical-to-physical mapping.
-- EEPROM-backed mapping and settings are important parts of this firmware design.
-- This folder README should describe the firmware specifically, while the root README explains the full project.
+- local PlatformIO compile/upload verification for the ESP32 project
+- screenshots and usage docs for the web UI
+- API/versioning notes for the ESP32 HTTP + serial interfaces
+- eventual cleanup of duplicated clock concepts between the Leonardo and ESP32 code paths once the long-term direction settles

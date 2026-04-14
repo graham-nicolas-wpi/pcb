@@ -1,227 +1,106 @@
 # Modular NeoPixel Smart Clock
 
-A custom 4-digit NeoPixel clock built around an **Arduino Leonardo**, a **31-pixel mapped display**, a **DS3231 RTC**, and a desktop control app for calibration, testing, and day-to-day control.
-
-This repository is the home for the full project:
+This repository contains the full project for a custom 4-digit NeoPixel clock:
 
 - custom PCB hardware
-- Arduino firmware for the clock
-- desktop GUI tooling
-- RTC integration
-- saved LED mapping and settings
-- future expansion for sensors, smarter modes, and enclosure / 3D printed parts
+- Leonardo-based firmware and calibration tools
+- a modular PySide6 desktop control app
+- an in-progress ESP32-first long-term architecture with on-device web UI
 
-## Project overview
+The project started as a PCB course build and is now being pushed toward a more durable platform that can support richer faces, presets, widgets, network features, and future integrations.
 
-This clock started as a PCB course project and is being developed into a more polished modular smart clock platform.
+## Current Structure
 
-Right now, the system supports:
+### Hardware
 
-- a 4-digit / 31-LED NeoPixel display
-- EEPROM-backed LED mapping
-- DS3231 real-time clock support
-- timer and stopwatch modes
-- configurable colors and brightness
-- 3-button on-device control
-- a desktop control app for setup, testing, and live control
+- `hardware/pcb/` - KiCad sources, fabrication outputs, schematic exports
 
-## Main parts of the project
+### Arduino / Leonardo path
 
-### Firmware
+- `firmware/arduino/clock_firmware/` - lean runtime firmware for the existing Leonardo clock
+- `firmware/arduino/clock_calibration_firmware/` - separate calibration/mapping firmware
 
-The firmware runs on an **Arduino Leonardo** and drives the 31-pixel display using the saved logical LED mapping.
+This path is the practical option for the current board as it exists today:
 
-Current firmware capabilities:
-
-- uses the saved LED mapping from EEPROM if available
-- supports multiple display modes:
-  - Clock
-  - MM:SS seconds display
-  - Timer
-  - Stopwatch
-  - Color demo
-- supports configurable colors for:
-  - main clock digits
-  - accent / colon
-  - seconds mode
-  - timer mode
-- saves settings to EEPROM
-- uses 3 active-low buttons on D8, D9, and D10
-- reads and writes time from the DS3231 RTC
+- 31 WS2812 LEDs on `D5`
+- 3 active-low buttons on `D8`, `D9`, `D10`
+- DS3231 RTC on I2C
+- EEPROM-backed settings and LED mapping
+- serial control from the desktop app
 
 ### Desktop GUI
 
-The desktop GUI is the control app for the project. It handles serial communication with the clock and makes it easier to test features without reflashing firmware every time.
+- `softwear/clockWinder_gui/` - PySide6 + pySerial desktop app
 
-Current GUI capabilities:
+The desktop app supports:
 
-- connect to the Leonardo over serial
-- set display mode
-- change brightness
-- toggle 12/24h, leading zero, and colon blink
-- read RTC time
-- set RTC time manually or from the PC time
-- set timer length and start / stop it
-- start / stop / reset the stopwatch
-- change display colors
-- save settings to EEPROM
-- run digit and segment tests
-- read back mapping / status
+- serial connect / disconnect
+- runtime control for mode, brightness, colors, RTC, timer, stopwatch
+- calibration workflow and mapping table
+- JSON/header mapping exports
+- a modular package layout for future work
 
-## Current files
+### ESP32 path
 
-This package currently includes:
+- `firmware/platformio/esp32_clock/` - long-term ESP32-WROOM-32E architecture
 
-- `smart_clock_backend.ino` — Arduino Leonardo firmware for the 31-pixel 4-digit NeoPixel clock
-- `smart_clock_gui.py` — desktop GUI for colors, brightness, RTC time, timer, stopwatch, and test patterns
-- support for the **hiLetgo DS3231 AT24C32 RTC module** with CR2032 backup battery
+This is the forward-looking direction for the project:
 
-## Hardware wiring
+- ESP32-driven runtime
+- LittleFS-backed saved config
+- Wi-Fi AP + optional STA mode
+- on-device browser UI
+- presets, widgets, faces, effects, and mapping storage
+- serial compatibility layer for existing tooling concepts
 
-### Existing clock board
+## Recommended Reading
 
-Keep your existing connections the same:
+- Leonardo firmware overview: [firmware/README.md](firmware/README.md)
+- ESP32 project overview: [firmware/platformio/esp32_clock/README.md](firmware/platformio/esp32_clock/README.md)
+- ESP32 architecture notes: [firmware/platformio/esp32_clock/ARCHITECTURE.md](firmware/platformio/esp32_clock/ARCHITECTURE.md)
+- Desktop GUI notes: [softwear/clockWinder_gui/README.md](softwear/clockWinder_gui/README.md)
 
-- NeoPixel data -> `D5`
-- Button 1 -> `D8`
-- Button 2 -> `D9`
-- Button 3 -> `D10`
-- buttons are active-low, so each button should connect the pin to GND when pressed
+## Where The Project Stands
 
-### DS3231 RTC module wiring
+### Leonardo path
 
-Wire the hiLetgo DS3231 module like this:
+The Leonardo path is the stable path for the existing hardware, but it is now flash-constrained. Splitting calibration into its own firmware was the right move and buys more room, but long-term feature growth on ATmega32U4 will stay tight.
 
-- `DS3231 VCC` -> `Leonardo 5V`
-- `DS3231 GND` -> `Leonardo GND`
-- `DS3231 SDA` -> `Leonardo D2 / SDA`
-- `DS3231 SCL` -> `Leonardo D3 / SCL`
+### ESP32 path
 
-Optional:
+The ESP32 path is the long-term expansion path. It is meant to become the main platform for:
 
-- `DS3231 SQW` -> leave unconnected for now
-- `32K` -> leave unconnected
+- richer faces and effects
+- saved presets and customization
+- web-based control instead of desktop-only control
+- future data sources and integrations
 
-### Important battery note
+Right now it is a strong architectural foundation, but it should still be treated as an active overhaul rather than the fully battle-tested shipping path.
 
-The **CR2032 goes into the RTC module itself**, not into the Leonardo or the clock PCB.
-That battery keeps time when main power is removed.
+## Suggested Workflow
 
-## Button behavior on-device
+### If you want the existing clock working now
 
-### Button 1 (`D8`)
-- short press: next display mode
-- long press: toggle 12/24 hour mode
+1. Use the Leonardo runtime firmware in `firmware/arduino/clock_firmware/`
+2. Use `firmware/arduino/clock_calibration_firmware/` only when mapping/calibration is needed
+3. Use the PySide6 desktop app in `softwear/clockWinder_gui/`
 
-### Button 2 (`D9`)
-- short press: rotate clock / accent colors
-- long press: change brightness
+### If you want the future platform
 
-### Button 3 (`D10`)
-- in timer mode:
-  - short press: add 1 minute
-  - long press: start / stop timer
-- in stopwatch mode:
-  - short press: start / stop stopwatch
-  - long press: reset stopwatch
-- in other modes:
-  - short press: toggle colon blink
+1. Work in `firmware/platformio/esp32_clock/`
+2. Build out the ESP32 hardware around safe GPIO choices
+3. Treat the web UI, presets, widgets, and faces as the main control model going forward
 
-## Arduino libraries needed
+## Immediate Improvement Ideas
 
-Install these from Library Manager:
+- Add a real PlatformIO build/test pass for the ESP32 project in your local environment
+- Tighten the ESP32 docs and API contracts as the architecture settles
+- Decide whether the ESP32 will fully replace Leonardo or act as the system brain while Leonardo remains a display coprocessor for one transitional revision
+- Add screenshots / demo photos for both the GUI and ESP32 web UI
+- Clean up repository naming over time if you want to rename `softwear/` to `software/`, but only when you are ready to touch imports, paths, and references together
 
-- Adafruit NeoPixel
-- RTClib
+## Notes
 
-## Uploading the firmware
-
-1. Open `smart_clock_backend.ino` in Arduino IDE.
-2. Select **Arduino Leonardo**.
-3. Select the correct port.
-4. Install the libraries if prompted.
-5. Upload.
-
-If your clock was already calibrated and the mapping was saved to EEPROM, the new firmware will try to use that saved mapping automatically.
-
-## Running the GUI
-
-### Python packages
-
-Install:
-
-```bash
-pip install PySide6 pyserial
-```
-
-### Launch
-
-```bash
-python smart_clock_gui.py
-```
-
-## Serial commands used by the GUI
-
-Examples:
-
-```text
-HELLO SmartClock/1
-STATUS?
-MODE 0
-BRIGHTNESS 64
-COLOR CLOCK FF7A18
-COLOR ACCENT 2080FF
-TIME 2026-04-12 14:30:00
-TIME?
-TIMER SET 300
-TIMER START
-STOPWATCH START
-TEST DIGITS
-TEST SEGMENTS
-SAVE SETTINGS
-```
-
-## Good first test sequence
-
-1. Wire the DS3231.
-2. Insert the CR2032 into the DS3231 module.
-3. Upload the firmware.
-4. Open the GUI.
-5. Connect to the Leonardo.
-6. Click **Read RTC**.
-7. Click **Set RTC From PC Time**.
-8. Click **Set Mode -> Clock**.
-9. Change the colors and brightness.
-10. Click **Save Settings to EEPROM**.
-11. Run **Digit Test** and **Segment Test** to confirm the saved calibration still matches.
-
-## Troubleshooting
-
-### If the time is wrong after power loss
-
-That usually means one of these:
-
-- the CR2032 is not installed correctly
-- the battery is dead
-- the RTC module is not wired to SDA / SCL correctly
-- the RTC lost power before it was set at least once
-
-### If the GUI will not connect
-
-- close Arduino Serial Monitor first
-- close any other serial tools
-- unplug / replug the Leonardo
-- refresh ports in the GUI
-- choose the `/dev/cu.usbmodem...` or COM port for the Leonardo
-
-## Next steps for the repo
-
-As the project gets cleaned up, this repository will expand to better separate:
-
-- hardware files and fabrication outputs
-- firmware source modules
-- GUI source code
-- documentation and screenshots
-- future enclosure / 3D printed parts
-
-The long-term goal is to turn this from a class PCB submission into a polished engineering project with clean firmware architecture, cleaner desktop tooling, and a better GitHub portfolio presentation.
+- The Leonardo and ESP32 paths are intentionally both in the repo right now.
+- The ESP32 project is not just a port; it is a broader platform redesign.
+- The branch you are working on can carry docs and architecture that are more ESP32-oriented than `main`, which is expected.

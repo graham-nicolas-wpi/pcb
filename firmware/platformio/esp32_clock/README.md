@@ -11,7 +11,7 @@ It keeps the original clock concepts:
 - DS3231 RTC support
 - serial command compatibility for the current desktop tooling
 
-It adds a new ESP32-native direction:
+It adds the new ESP32-native direction:
 
 - browser-based configuration UI served directly from the clock
 - saved presets, faces, and widgets
@@ -20,7 +20,18 @@ It adds a new ESP32-native direction:
 - JSON-backed storage in LittleFS
 - modular firmware structure for long-term expansion
 
-## Recommended ESP32 wiring
+## Current Goal
+
+This project is the foundation for the long-term branch, not just a quick experimental sketch. The point is to create a structure that can reasonably grow into:
+
+- a customizable network-connected clock
+- a self-hosted configuration surface
+- reusable saved themes / presets
+- richer display behaviors than the Leonardo can comfortably hold
+
+At the same time, it is still early enough that it should be treated as an active architecture build-out rather than a fully settled final product.
+
+## Recommended ESP32 Wiring
 
 For `ESP32-WROOM-32E`, do not plan around the old Leonardo button numbering. This project defaults to:
 
@@ -31,9 +42,9 @@ For `ESP32-WROOM-32E`, do not plan around the old Leonardo button numbering. Thi
 - DS3231 SDA: `GPIO21`
 - DS3231 SCL: `GPIO22`
 
-These defaults are editable in saved config, but hardware pin changes require reboot.
+These defaults are editable in saved config, but hardware pin changes require reboot. They are chosen to avoid the worst ESP32 pin pitfalls and to keep the project away from flash and strap-pin trouble.
 
-## Project layout
+## Project Layout
 
 - `src/main.cpp` - startup and loop
 - `src/model/ClockConfig.h` - persistent data model
@@ -45,7 +56,23 @@ These defaults are editable in saved config, but hardware pin changes require re
 - `src/hal/*` - buttons and NeoPixel driver
 - `data/*` - browser UI assets uploaded to LittleFS
 
-## Upload workflow
+For a more detailed explanation of how the layers fit together, see:
+
+- [ARCHITECTURE.md](ARCHITECTURE.md)
+
+## Current Feature Set
+
+The current first-pass ESP32 project includes:
+
+- runtime modes for clock, clock-seconds, timer, stopwatch, and color demo
+- saved presets with palette-based color configuration
+- saved widgets and saved faces
+- timer / stopwatch / RTC controls in the web UI
+- mapping, calibration cursor, assign/unassign, and exports
+- config save/load to LittleFS
+- serial command compatibility for many of the existing Leonardo-era commands
+
+## Upload Workflow
 
 1. Install PlatformIO.
 2. Build and upload firmware:
@@ -55,7 +82,7 @@ These defaults are editable in saved config, but hardware pin changes require re
 4. Open serial monitor:
    - `pio device monitor`
 
-## First boot behavior
+## First Boot Behavior
 
 The device starts a Wi-Fi access point using the saved AP credentials. Default values are:
 
@@ -68,7 +95,22 @@ Open:
 
 The UI can then edit presets, widgets, faces, mapping, network settings, and runtime controls.
 
-## Architecture notes
+## Browser UI Scope
+
+The browser UI is meant to be the main long-term control surface. It already covers:
+
+- live runtime control
+- timer / stopwatch / RTC control
+- presets
+- widgets
+- faces
+- mapping and calibration
+- config export
+- network settings
+
+That makes it different from the older desktop GUI path, which is still useful but no longer has to be the primary UX for the future platform.
+
+## Architecture Notes
 
 This first ESP32 pass uses composable faces and widgets rather than user-scripted drawing code.
 
@@ -77,3 +119,11 @@ This first ESP32 pass uses composable faces and widgets rather than user-scripte
 - Presets hold named color palettes and a default effect.
 
 That gives you a practical customization model now, while leaving room for a future scripted face engine if you want one later.
+
+## Improvements Still Worth Making
+
+- run real local PlatformIO compile/upload verification and tighten any library/API mismatches
+- add schema/version migration notes for saved config
+- harden the HTTP API contracts if outside tools will depend on them
+- add screenshots of the web UI and wiring diagrams for the recommended ESP32 build
+- decide how far you want to go with user-defined faces before introducing a scripting layer

@@ -3,6 +3,7 @@
 #include <Arduino.h>
 
 namespace ProjectConfig {
+static constexpr const char* kFirmwareVersion = "0.1.0";
 static constexpr uint8_t kDefaultPixelCount = 31;
 static constexpr uint8_t kDefaultPixelPin = 18;
 static constexpr uint8_t kDefaultButton1Pin = 25;

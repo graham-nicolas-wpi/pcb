@@ -1,5 +1,7 @@
 #include "SerialProtocol.h"
 
+#include "../../include/project_config.h"
+
 SerialProtocol::SerialProtocol(Stream& serial, SettingsStore& store, ClockRuntime& runtime)
     : serial_(serial), store_(store), runtime_(runtime) {}
 
@@ -45,7 +47,8 @@ void SerialProtocol::sendHello(const char* protocolName) const {
   serial_.print(protocolName);
   serial_.print(" NAME=");
   serial_.print(CLOCK_DEVICE_NAME);
-  serial_.print(" FW=0.1.0");
+  serial_.print(" FW=");
+  serial_.print(ProjectConfig::kFirmwareVersion);
   serial_.print(" PIXELS=");
   serial_.print(store_.config().hardware.pixelCount);
   serial_.print(" LOGICAL=");
