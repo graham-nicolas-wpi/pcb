@@ -13,3 +13,5 @@ enum LogicalId : uint8_t {
   LOGICAL_COUNT = 31,
   LOG_UNUSED = 255
 };
+
+constexpr uint8_t kLogicalCount = static_cast<uint8_t>(LOGICAL_COUNT);

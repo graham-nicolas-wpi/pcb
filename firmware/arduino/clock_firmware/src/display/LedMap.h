@@ -25,6 +25,7 @@ public:
   void loadOrDefault();
   void buildInverse();
   bool validateNoDuplicates() const;
+  bool assign(uint8_t physical, uint8_t logical);
   uint16_t checksum16(const uint8_t* data, size_t n) const;
 
   uint8_t physToLogical[kNumPixels];

@@ -1,6 +1,6 @@
 #include "LogicalDisplay.h"
 #include "LedMap.h"
-#include "PixelDriver_NeoPixel.h"
+#include "../hal/PixelDriver_NeoPixel.h"
 
 static const uint8_t kDigitMask[10] = {
   0b00111111, 0b00000110, 0b01011011, 0b01001111, 0b01100110,
@@ -37,11 +37,47 @@ void LogicalDisplay::setDecimal(bool on, uint32_t color) {
   setLogical(DECIMAL, on ? color : 0);
 }
 
+void LogicalDisplay::clearDigit(uint8_t digitIndex) {
+  if (digitIndex > 3) return;
+  const uint8_t base = digitBaseLogical(digitIndex);
+  for (uint8_t s = 0; s < 7; ++s) {
+    setLogical(base + s, 0);
+  }
+}
+
 void LogicalDisplay::renderDigit(uint8_t digitIndex, uint8_t value, uint32_t color) {
   if (digitIndex > 3) return;
   const uint8_t base = digitBaseLogical(digitIndex);
   const uint8_t mask = kDigitMask[value % 10];
   for (uint8_t s = 0; s < 7; ++s) setLogical(base + s, (mask & (1 << s)) ? color : 0);
+}
+
+void LogicalDisplay::renderDigits(const uint8_t digits[4], const uint32_t colors[4],
+                                  bool blankLeadingDigit) {
+  if (blankLeadingDigit) {
+    clearDigit(0);
+  } else {
+    if (digits[0] <= 9U) {
+      renderDigit(0, digits[0], colors[0]);
+    } else {
+      clearDigit(0);
+    }
+  }
+  if (digits[1] <= 9U) {
+    renderDigit(1, digits[1], colors[1]);
+  } else {
+    clearDigit(1);
+  }
+  if (digits[2] <= 9U) {
+    renderDigit(2, digits[2], colors[2]);
+  } else {
+    clearDigit(2);
+  }
+  if (digits[3] <= 9U) {
+    renderDigit(3, digits[3], colors[3]);
+  } else {
+    clearDigit(3);
+  }
 }
 
 void LogicalDisplay::renderFourDigits(uint8_t d1, uint8_t d2, uint8_t d3, uint8_t d4, bool colonOn, uint32_t digitColor, uint32_t colonColor) {

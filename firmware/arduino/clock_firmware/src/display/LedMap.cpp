@@ -23,6 +23,18 @@ void LedMap::buildInverse() {
   }
 }
 
+bool LedMap::assign(uint8_t physical, uint8_t logical) {
+  if (physical >= kNumPixels) {
+    return false;
+  }
+  if (logical != LOG_UNUSED && logical >= LOGICAL_COUNT) {
+    return false;
+  }
+  physToLogical[physical] = logical;
+  buildInverse();
+  return true;
+}
+
 bool LedMap::validateNoDuplicates() const {
   bool used[LOGICAL_COUNT] = {false};
   for (uint8_t p = 0; p < kNumPixels; ++p) {
