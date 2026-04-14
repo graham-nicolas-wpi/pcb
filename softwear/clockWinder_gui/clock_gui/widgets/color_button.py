@@ -11,7 +11,11 @@ class ColorButton(QtWidgets.QPushButton):
         self._title = title
         self._color = QtGui.QColor(*rgb)
         self.clicked.connect(self._choose_color)
-        self.setMinimumHeight(34)
+        self.setMinimumHeight(50)
+        self.setSizePolicy(
+            QtWidgets.QSizePolicy.Policy.Expanding,
+            QtWidgets.QSizePolicy.Policy.Fixed,
+        )
         self._refresh()
 
     def rgb(self) -> tuple[int, int, int]:
@@ -39,7 +43,7 @@ class ColorButton(QtWidgets.QPushButton):
         red, green, blue = self.rgb()
         brightness = (red * 299 + green * 587 + blue * 114) / 1000
         text_color = "#161616" if brightness > 150 else "white"
-        self.setText(f"{self._title}: {red}, {green}, {blue}")
+        self.setText(f"{self._title}\n{red}, {green}, {blue}")
         self.setStyleSheet(
             "QPushButton {"
             f"background-color: rgb({red}, {green}, {blue});"
@@ -47,6 +51,6 @@ class ColorButton(QtWidgets.QPushButton):
             "border-radius: 8px;"
             "padding: 6px 10px;"
             "font-weight: 600;"
-            "text-align: left;"
+            "text-align: center;"
             "}"
         )

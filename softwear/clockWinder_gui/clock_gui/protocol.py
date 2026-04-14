@@ -203,6 +203,8 @@ class ClockProtocol:
 
         if text.startswith("OK STATUS "):
             data = _parse_key_values(text.split()[2:])
+            data["current_phys"] = _int_value(data, "CUR", 0)
+            data["mapping_valid"] = None if "VALID" not in data else _bool_value(data, "VALID")
             data["brightness"] = _int_value(data, "BRIGHTNESS", 64)
             data["colon_brightness"] = _int_value(data, "COLONBRIGHTNESS", 255)
             data["timer_preset"] = _int_value(data, "TIMER_PRESET", 300)
