@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NeoPixel Clock Studio</title>
+    <link rel="stylesheet" href="/app.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">ESP32 Clock Studio</p>
+          <h1>NeoPixel Clock Control Deck</h1>
+          <p class="subcopy">
+            Configure presets, faces, widgets, mapping, timer modes, RTC, and effects directly
+            from the clock.
+          </p>
+        </div>
+        <div class="hero-actions">
+          <button id="refreshBootstrapButton" class="button secondary">Refresh</button>
+          <button id="saveConfigButton" class="button">Save Configuration</button>
+          <button id="loadConfigButton" class="button secondary">Reload From Clock</button>
+        </div>
+      </header>
+
+      <section class="status-ribbon" id="statusRibbon"></section>
+
+      <main class="dashboard">
+        <section class="card span-2">
+          <div class="card-head">
+            <h2>Runtime Control</h2>
+            <p>Mode, brightness, active preset, active face, and live effect behavior.</p>
+          </div>
+          <div class="form-grid two-col">
+            <label>
+              <span>Mode</span>
+              <select id="modeSelect"></select>
+            </label>
+            <label>
+              <span>Active Face</span>
+              <select id="activeFaceSelect"></select>
+            </label>
+            <label>
+              <span>Hour Mode</span>
+              <select id="hourModeSelect"></select>
+            </label>
+            <label>
+              <span>Active Preset</span>
+              <select id="activePresetSelect"></select>
+            </label>
+            <label>
+              <span>Seconds Mode</span>
+              <select id="secondsModeSelect"></select>
+            </label>
+            <label>
+              <span>Effect</span>
+              <select id="effectSelect"></select>
+            </label>
+            <label>
+              <span>Timer Format</span>
+              <select id="timerFormatSelect"></select>
+            </label>
+            <label class="check-row">
+              <span>Force Rainbow</span>
+              <input id="rainbowEnabledCheckbox" type="checkbox" />
+            </label>
+            <label class="range-row span-2">
+              <span>Brightness</span>
+              <input id="brightnessRange" type="range" min="1" max="255" />
+              <strong id="brightnessValue"></strong>
+            </label>
+            <label class="range-row span-2">
+              <span>Colon Brightness</span>
+              <input id="colonBrightnessRange" type="range" min="0" max="255" />
+              <strong id="colonBrightnessValue"></strong>
+            </label>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2>Timer / Stopwatch / RTC</h2>
+            <p>Keep the original runtime controls, now in-browser.</p>
+          </div>
+          <div class="stack">
+            <div class="timer-grid">
+              <label><span>Hours</span><input id="timerHoursInput" type="number" min="0" max="99" value="0" /></label>
+              <label><span>Minutes</span><input id="timerMinutesInput" type="number" min="0" max="59" value="5" /></label>
+              <label><span>Seconds</span><input id="timerSecondsInput" type="number" min="0" max="59" value="0" /></label>
+            </div>
+            <div class="button-row">
+              <button id="timerSetButton" class="button">Set Timer</button>
+              <button id="timerStartButton" class="button">Start</button>
+              <button id="timerStopButton" class="button secondary">Stop</button>
+              <button id="timerResetButton" class="button secondary">Reset</button>
+            </div>
+            <div class="button-row">
+              <button id="stopwatchStartButton" class="button">Start Stopwatch</button>
+              <button id="stopwatchStopButton" class="button secondary">Stop</button>
+              <button id="stopwatchResetButton" class="button secondary">Reset</button>
+            </div>
+            <label>
+              <span>RTC Date / Time</span>
+              <input id="rtcDateTimeInput" type="datetime-local" />
+            </label>
+            <button id="rtcSetButton" class="button">Set RTC</button>
+          </div>
+        </section>
+
+        <section class="card span-2">
+          <div class="card-head">
+            <h2>Preset Studio</h2>
+            <p>Create and save color palettes, plus default effects like rainbow and pulse.</p>
+          </div>
+          <div class="toolbar">
+            <select id="presetSelect"></select>
+            <button id="newPresetButton" class="button">New Preset</button>
+            <button id="deletePresetButton" class="button secondary">Delete</button>
+            <button id="applyPresetButton" class="button secondary">Apply Now</button>
+          </div>
+          <div class="form-grid two-col" id="presetEditor"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2>Face Builder</h2>
+            <p>Compose mode-specific faces from presets, widgets, and effect layers.</p>
+          </div>
+          <div class="toolbar">
+            <select id="faceSelect"></select>
+            <button id="newFaceButton" class="button">New Face</button>
+            <button id="deleteFaceButton" class="button secondary">Delete</button>
+            <button id="applyFaceButton" class="button secondary">Activate</button>
+          </div>
+          <div class="form-grid" id="faceEditor"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2>Widget Builder</h2>
+            <p>Reusable behaviors for pulsing, warnings, seconds sparks, and accent motion.</p>
+          </div>
+          <div class="toolbar">
+            <select id="widgetSelect"></select>
+            <button id="newWidgetButton" class="button">New Widget</button>
+            <button id="deleteWidgetButton" class="button secondary">Delete</button>
+          </div>
+          <div class="form-grid" id="widgetEditor"></div>
+        </section>
+
+        <section class="card span-2">
+          <div class="card-head">
+            <h2>Mapping & Calibration</h2>
+            <p>Calibrate physical LEDs, assign logical targets, validate, and export headers/JSON.</p>
+          </div>
+          <div class="toolbar wrap">
+            <button id="calibrationEnableButton" class="button">Calibration On</button>
+            <button id="calibrationDisableButton" class="button secondary">Calibration Off</button>
+            <button id="calibrationPrevButton" class="button secondary">Prev LED</button>
+            <button id="calibrationNextButton" class="button secondary">Next LED</button>
+            <select id="assignLogicalSelect"></select>
+            <button id="assignLogicalButton" class="button">Assign Current</button>
+            <button id="unassignLogicalButton" class="button secondary">Unassign</button>
+            <button id="testSegmentsButton" class="button secondary">Test Segments</button>
+            <button id="testDigitsButton" class="button secondary">Test Digits</button>
+            <button id="testAllButton" class="button secondary">Test All</button>
+          </div>
+          <div class="mapping-summary" id="mappingSummary"></div>
+          <div class="mapping-table-wrap">
+            <table class="mapping-table">
+              <thead>
+                <tr>
+                  <th>Physical</th>
+                  <th>Logical Target</th>
+                </tr>
+              </thead>
+              <tbody id="mappingTableBody"></tbody>
+            </table>
+          </div>
+          <div class="button-row">
+            <a class="button secondary" href="/api/export/config.json">Export Config JSON</a>
+            <a class="button secondary" href="/api/export/mapping.json">Export Mapping JSON</a>
+            <a class="button secondary" href="/api/export/ledmap.h">Export Mapping Header</a>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2>Network</h2>
+            <p>Run the clock as its own access point, or add station credentials later.</p>
+          </div>
+          <div class="form-grid" id="networkEditor"></div>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2>Activity</h2>
+            <p>Action responses, save results, and status refreshes.</p>
+          </div>
+          <div id="logPanel" class="log-panel"></div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

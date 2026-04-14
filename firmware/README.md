@@ -84,6 +84,20 @@ Examples of the files this firmware area is centered around:
 - calibration controller files
 - RTC support files
 
+## New ESP32 direction
+
+There is now a separate long-term ESP32-first project under:
+
+- `platformio/esp32_clock/`
+
+That project is the forward-looking architecture for:
+
+- ESP32-WROOM-32E driven runtime
+- on-device web UI
+- saved presets, widgets, and faces
+- Wi-Fi based customization
+- richer long-term expansion beyond Leonardo flash limits
+
 ## Hardware assumptions
 
 ### Display and buttons
