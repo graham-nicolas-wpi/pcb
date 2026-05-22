@@ -30,15 +30,14 @@ constexpr uint8_t kSparkles[kSparkleCount] = {9, 10, 11, 12, 13};
 The buzzer behaves like a passive piezo: simply turning `D13` on and off makes
 clicks, not a sustained tone. The sketch now creates a software square wave on
 `D13` during each rhythm note. This board appears to be active-low, so `LOW` is
-the driven side and `HIGH` is idle. By default, the buzzer follows the Happy
-Birthday note pitches at 2x frequency, which is lower than the first fixed
-`2100 Hz` test but usually easier for a small piezo to reproduce than raw low
-notes.
+the driven side and `HIGH` is idle. By default, the buzzer follows a direct
+Happy Birthday melody in a lower, cleaner range than the first fixed `2100 Hz`
+test.
 
 ```cpp
 constexpr bool kUseSoftwareSquareWave = true;
 constexpr bool kUseMelodyPitch = true;
-constexpr uint8_t kMelodyPitchScalePercent = 200;
+constexpr uint8_t kMelodyPitchScalePercent = 100;
 ```
 
 ## Behavior
@@ -60,6 +59,6 @@ Useful constants near the top of `birthday_cake_firmware.ino`:
 - `kConfettiFadeMs`: how long the top LEDs fade after the candles go out
 - `kDurationScalePercent`: song rhythm length; `100` is original speed, higher is slower
 - `kRestMs`: quiet gap between beeps; lower this if the song feels too choppy
-- `kMelodyPitchScalePercent`: whole-song pitch; try `100`, `150`, `200`, or `250`
+- `kMelodyPitchScalePercent`: whole-song pitch; `100` is current melody pitch, try `125` or `150` only if it sounds too low/quiet
 - `kUseMelodyPitch`: set to `false` to use one fixed pitch instead of different notes
 - `kFixedBuzzFrequencyHz`: fixed pitch used when `kUseMelodyPitch` is `false`

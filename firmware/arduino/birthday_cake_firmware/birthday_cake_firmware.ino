@@ -40,7 +40,7 @@ namespace Buzzer {
 constexpr bool kUseSoftwareSquareWave = true;
 constexpr bool kUseMelodyPitch = true;
 constexpr uint16_t kFixedBuzzFrequencyHz = 900;
-constexpr uint8_t kMelodyPitchScalePercent = 200;
+constexpr uint8_t kMelodyPitchScalePercent = 100;
 constexpr uint8_t kOnLevel = LOW;
 constexpr uint8_t kOffLevel = HIGH;
 constexpr uint8_t kDurationScalePercent = 140;
@@ -72,24 +72,24 @@ struct SongNote {
   uint16_t durationMs;
 };
 
-constexpr uint16_t NOTE_C4 = 262;
-constexpr uint16_t NOTE_D4 = 294;
-constexpr uint16_t NOTE_E4 = 330;
-constexpr uint16_t NOTE_F4 = 349;
 constexpr uint16_t NOTE_G4 = 392;
 constexpr uint16_t NOTE_A4 = 440;
-constexpr uint16_t NOTE_AS4 = 466;
+constexpr uint16_t NOTE_B4 = 494;
 constexpr uint16_t NOTE_C5 = 523;
+constexpr uint16_t NOTE_D5 = 587;
+constexpr uint16_t NOTE_E5 = 659;
+constexpr uint16_t NOTE_F5 = 698;
+constexpr uint16_t NOTE_G5 = 784;
 
 constexpr SongNote kHappyBirthday[] = {
-    {NOTE_C4, 180}, {NOTE_C4, 180}, {NOTE_D4, 360}, {NOTE_C4, 360},
-    {NOTE_F4, 360}, {NOTE_E4, 720},
-    {NOTE_C4, 180}, {NOTE_C4, 180}, {NOTE_D4, 360}, {NOTE_C4, 360},
-    {NOTE_G4, 360}, {NOTE_F4, 720},
-    {NOTE_C4, 180}, {NOTE_C4, 180}, {NOTE_C5, 360}, {NOTE_A4, 360},
-    {NOTE_F4, 360}, {NOTE_E4, 360}, {NOTE_D4, 720},
-    {NOTE_AS4, 180}, {NOTE_AS4, 180}, {NOTE_A4, 360}, {NOTE_F4, 360},
-    {NOTE_G4, 360}, {NOTE_F4, 900},
+    {NOTE_G4, 170}, {NOTE_G4, 170}, {NOTE_A4, 340}, {NOTE_G4, 340},
+    {NOTE_C5, 340}, {NOTE_B4, 680},
+    {NOTE_G4, 170}, {NOTE_G4, 170}, {NOTE_A4, 340}, {NOTE_G4, 340},
+    {NOTE_D5, 340}, {NOTE_C5, 680},
+    {NOTE_G4, 170}, {NOTE_G4, 170}, {NOTE_G5, 340}, {NOTE_E5, 340},
+    {NOTE_C5, 340}, {NOTE_B4, 340}, {NOTE_A4, 680},
+    {NOTE_F5, 170}, {NOTE_F5, 170}, {NOTE_E5, 340}, {NOTE_C5, 340},
+    {NOTE_D5, 340}, {NOTE_C5, 850},
 };
 
 constexpr uint8_t kSongLength = sizeof(kHappyBirthday) / sizeof(kHappyBirthday[0]);
