@@ -11,7 +11,7 @@ DEFAULT_NUM_PIXELS = 31
 DEFAULT_PIXEL_PIN = 5
 LOG_UNUSED = 255
 PACKAGE_ROOT = Path(__file__).resolve().parent
-DEFAULT_EXPORT_DIR = PACKAGE_ROOT.parent
+DEFAULT_EXPORT_DIR = PACKAGE_ROOT / "ledmaps"
 JSON_SCHEMA = "neopixel-clock-map/v1"
 
 

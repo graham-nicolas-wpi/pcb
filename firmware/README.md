@@ -1,132 +1,67 @@
-# ClockCal starter project
-
-This is a generated starter project for your NeoPixel four-digit clock.
-
-## Hardware assumptions
-- Arduino Leonardo / ATmega32U4
-- 31 WS2812 LEDs on `D5`
-- 3 active-low buttons on `D8`, `D9`, `D10`
-- Future DS3231 RTC on I2C
-
-## Folder layout
-- `firmware/ClockCal_Firmware/` — Arduino firmware starter
-- `gui/clockcal_tool.py` — desktop calibration GUI starter
-- `gui/requirements.txt` — Python dependencies
-
-## First steps
-1. Install Arduino library `Adafruit NeoPixel`.
-2. Open `ClockCal_Firmware.ino` in Arduino IDE.
-3. Upload to your Leonardo.
-4. In Serial Monitor, try:
-   - `HELLO ClockCal/1`
-   - `INFO?`
-   - `NEXT`
-   - `ASSIGN 0`
-   - `MAP?`
-   - `TEST SEGMENTS`
-5. For the GUI:
-   - `pip install -r gui/requirements.txt`
-   - `python gui/clockcal_tool.py`
-
-## Notes
-- `Generated_LedMap.h` starts as an identity-map placeholder.
-- After calibration, export a real header from the GUI and replace it.
-
 # Firmware
 
-This folder contains the Arduino-side firmware for the **Modular NeoPixel Smart Clock**.
+Arduino firmware for the NeoPixel smart clock. Target: **Arduino Leonardo / ATmega32U4**.
 
-The firmware is responsible for driving the 31-pixel 4-digit display, handling button input, reading and writing RTC time, storing settings, and responding to commands from the desktop GUI.
+## Sketches
 
-## Current hardware target
+| Sketch | Purpose |
+| --- | --- |
+| `arduino/clock_firmware/clock_firmware.ino` | The clock: modes, buttons, RTC, settings, and the serial control protocol |
+| `arduino/clock_calibration_firmware/clock_calibration_firmware.ino` | LED mapping: steps through each physical LED and assigns it a logical segment |
 
-- **Arduino Leonardo / ATmega32U4**
-- **31 WS2812 / NeoPixel LEDs** on `D5`
-- **3 active-low buttons** on `D8`, `D9`, and `D10`
-- **DS3231 RTC** on I2C
+The calibration sketch doesn't keep its own copy of the shared code. Its `src/**/*.cpp` files are one-line wrappers that `#include` the sources from `clock_firmware/src/`. Keep the two sketch folders next to each other.
 
-## Purpose of this firmware
+Libraries (Library Manager): **Adafruit NeoPixel**, plus **RTClib** for `clock_firmware`.
 
-The firmware is meant to grow beyond a one-off class sketch into a cleaner modular clock codebase.
+Example build with arduino-cli:
 
-Current goals:
+```bash
+arduino-cli compile --fqbn arduino:avr:leonardo firmware/arduino/clock_firmware
+arduino-cli compile --fqbn arduino:avr:leonardo firmware/arduino/clock_calibration_firmware
+```
 
-- drive the custom 4-digit NeoPixel clock display
-- support saved logical LED mapping
-- support RTC-backed timekeeping
-- provide timer and stopwatch modes
-- support configurable colors and brightness
-- support serial control from the desktop GUI
-- keep the architecture clean enough to expand later
+## Source layout (`clock_firmware/src/`)
 
-## Expected structure
+- `hal/`: buttons (debounced, active low), NeoPixel driver, DS3231 wrapper
+- `display/`: logical segment IDs, LED map (EEPROM-backed), logical display rendering, `Generated_LedMap.h` default map
+- `calibration/`: `CalibrationController` (mapping) and `ClockProtocol` (clock serial commands)
+- `settings/`: EEPROM settings store and color/preset profiles
+- `ui/`: mode state machine
+- `faces/`: clock and timer face rendering
+- `util/`: color and checksum helpers
 
-This firmware area is being cleaned up into a more modular layout.
+## Pins
 
-Planned structure:
+| Function | Pin |
+| --- | --- |
+| NeoPixel data | D5 |
+| Buttons 1/2/3 | D8 / D9 / D10 (active low) |
+| DS3231 SDA / SCL | D2 / D3 |
 
-- `arduino/` — Arduino IDE project files
-- `src/hal/` — hardware abstraction layers like buttons, pixels, and RTC
-- `src/display/` — logical IDs, LED mapping, and display rendering
-- `src/calibration/` — calibration protocol and mapping control
-- `src/settings/` — EEPROM-backed settings and profiles
-- `src/ui/` — mode handling and state machine logic
-- `src/faces/` — clock face and mode-specific rendering
+## LED map
 
-## Current important files
+The map goes from physical LED index (position on the data chain) to logical segment (`LogicalIds.h`: `D1_A`...`D4_G`, `COLON_TOP`, `COLON_BOTTOM`, `DECIMAL`). At boot, both sketches load the map from EEPROM if it's valid. Otherwise they use `kPhysToLogical` from `Generated_LedMap.h`. The inverse table is always rebuilt at runtime.
 
-Examples of the files this firmware area is centered around:
+## Serial protocol (115200 baud, newline-terminated)
 
-- `ClockCal_Firmware.ino` or renamed firmware entry file
-- `Generated_LedMap.h`
-- button handling files
-- logical display / mapping files
-- calibration controller files
-- RTC support files
+### Clock firmware
 
-## Hardware assumptions
+- `HELLO`, `INFO?`, `STATUS?`
+- `MODE CLOCK | CLOCK_SECONDS | TIMER | STOPWATCH | COLOR_DEMO`
+- `HOURMODE 12H | 24H`
+- `SECONDSMODE BLINK | ON | OFF`
+- `TIMERFORMAT AUTO | HHMM | MMSS | SSCS`
+- `BRIGHTNESS <0-255>`, `COLONBRIGHTNESS <0-255>`
+- `COLOR <target> <r> <g> <b>`. Targets: `CLOCK HOURS MINUTES DIGIT1..4 ACCENT SECONDS TIMER STOPWATCH TIMER_HOURS TIMER_MINUTES TIMER_SECONDS STOPWATCH_HOURS STOPWATCH_MINUTES STOPWATCH_SECONDS`
+- `PRESET RAINBOW | PARTY`
+- `RTC READ`, `RTC SET <yyyy> <mm> <dd> <hh> <mm> <ss>`
+- `TIMER SET <seconds>`, `TIMER START | STOP | RESET`
+- `STOPWATCH START | STOP | RESET`
 
-### Display and buttons
+### Calibration firmware
 
-- NeoPixel data line -> `D5`
-- Button 1 -> `D8`
-- Button 2 -> `D9`
-- Button 3 -> `D10`
-- buttons are active-low and connect to GND when pressed
-
-### DS3231 RTC
-
-- `VCC` -> `5V`
-- `GND` -> `GND`
-- `SDA` -> `D2 / SDA`
-- `SCL` -> `D3 / SCL`
-
-## Basic workflow
-
-1. Open the firmware project in Arduino IDE.
-2. Select **Arduino Leonardo**.
-3. Install the required libraries.
-4. Upload the firmware.
-5. Connect with the desktop GUI or Serial Monitor.
-6. Verify the mapping, RTC, and display modes.
-
-## Useful serial commands
-
-Examples:
-
-- `HELLO ClockCal/1`
-- `INFO?`
-- `STATUS?`
-- `NEXT`
-- `PREV`
-- `ASSIGN 0`
-- `MAP?`
-- `TEST SEGMENTS`
-- `TEST DIGITS`
-- `SAVE`
-
-## Notes
-
-- `Generated_LedMap.h` should eventually contain the real calibrated logical-to-physical mapping.
-- EEPROM-backed mapping and settings are important parts of this firmware design.
-- This folder README should describe the firmware specifically, while the root README explains the full project.
+- `HELLO`, `INFO?`, `STATUS?`, `MODE CAL | RUN`
+- `CUR?`, `SET <phys>`, `NEXT`, `PREV`
+- `ASSIGN <logical>`, `UNASSIGN_CUR`
+- `MAP?`, `VALIDATE?`, `SAVE`, `LOAD`
+- `TEST DIGITS | SEGMENTS | ALL`

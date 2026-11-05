@@ -12,7 +12,7 @@ def _apply_style(app: QtWidgets.QApplication) -> None:
     app.setStyle("Fusion")
     app.setApplicationDisplayName(APP_NAME)
     app.setOrganizationName("pcb")
-    app.setApplicationName("clock_gui")
+    app.setApplicationName("clockWinder")
 
     palette = QtGui.QPalette()
     palette.setColor(QtGui.QPalette.Window, QtGui.QColor("#10161b"))

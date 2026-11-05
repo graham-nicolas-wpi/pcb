@@ -1,4 +1,4 @@
-from clock_gui.app import main
+from clockWinder.app import main
 
 
 if __name__ == "__main__":

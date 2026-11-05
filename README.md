@@ -1,227 +1,92 @@
 # Modular NeoPixel Smart Clock
 
-A custom 4-digit NeoPixel clock built around an **Arduino Leonardo**, a **31-pixel mapped display**, a **DS3231 RTC**, and a desktop control app for calibration, testing, and day-to-day control.
+A custom 4-digit clock on a KiCad-designed PCB: an **ATmega32U4** (Arduino Leonardo compatible), **31 SK6812MINI addressable LEDs**, 3 buttons, and an external **DS3231 RTC**. It comes with a desktop app, **clockWinder**, for LED mapping, testing, and day-to-day control.
 
-This repository is the home for the full project:
+This started as a WPI PCB course project and is being grown into a polished, modular clock platform.
 
-- custom PCB hardware
-- Arduino firmware for the clock
-- desktop GUI tooling
-- RTC integration
-- saved LED mapping and settings
-- future expansion for sensors, smarter modes, and enclosure / 3D printed parts
+## Repository layout
 
-## Project overview
+| Path | What's there |
+| --- | --- |
+| `hardware/pcb/source (kicad files)/` | KiCad 9 project `NG_WPI_7seg_PCB` (the original course submission is in `OLD NAME PCB SUBMISSION/`) |
+| `hardware/pcb/schematic/` | Schematic PDFs |
+| `hardware/pcb/fabrication/` | Gerbers and drill files sent to JLCPCB |
+| `hardware/pcb/WPI PCB Submission ZIP/` | The zip submitted for the course |
+| `firmware/arduino/clock_firmware/` | Main clock firmware |
+| `firmware/arduino/clock_calibration_firmware/` | LED mapping / calibration firmware |
+| `softwear/clockWinder_gui/` | clockWinder desktop app (PySide6) |
+| `docs/` | Digi-Key parts list, architecture write-up |
+| `archive/` | The archived WPI starter repo and older generated code packages |
 
-This clock started as a PCB course project and is being developed into a more polished modular smart clock platform.
+## Hardware
 
-Right now, the system supports:
+- ATmega32U4 at 16 MHz, micro USB, ICSP header. It flashes as an **Arduino Leonardo**.
+- 31 SK6812MINI LEDs on **D5**: four 7-segment digits (28), a 2-dot colon, and a decimal point.
+- Buttons on **D8, D9, D10**. They're active low and pull the pin to GND when pressed.
+- Board is 102 x 40 mm.
 
-- a 4-digit / 31-LED NeoPixel display
-- EEPROM-backed LED mapping
-- DS3231 real-time clock support
-- timer and stopwatch modes
-- configurable colors and brightness
-- 3-button on-device control
-- a desktop control app for setup, testing, and live control
+### DS3231 RTC module (external)
 
-## Main parts of the project
+The RTC is a hiLetgo DS3231 module wired to the board, not mounted on it:
 
-### Firmware
+| DS3231 | Clock board |
+| --- | --- |
+| VCC | 5V |
+| GND | GND |
+| SDA | D2 / SDA |
+| SCL | D3 / SCL |
 
-The firmware runs on an **Arduino Leonardo** and drives the 31-pixel display using the saved logical LED mapping.
+Leave SQW and 32K unconnected. The **CR2032 goes in the RTC module** and keeps time when USB power is removed.
 
-Current firmware capabilities:
+## Firmware
 
-- uses the saved LED mapping from EEPROM if available
-- supports multiple display modes:
-  - Clock
-  - MM:SS seconds display
-  - Timer
-  - Stopwatch
-  - Color demo
-- supports configurable colors for:
-  - main clock digits
-  - accent / colon
-  - seconds mode
-  - timer mode
-- saves settings to EEPROM
-- uses 3 active-low buttons on D8, D9, and D10
-- reads and writes time from the DS3231 RTC
+There are two sketches. Both need the **Adafruit NeoPixel** library, and the main one also needs **RTClib**.
 
-### Desktop GUI
+1. **`clock_calibration_firmware`** is for mapping which physical LED is which segment. Flash it, then use the clockWinder calibration window and save the map to EEPROM.
+2. **`clock_firmware`** is the actual clock. It loads the saved map from EEPROM, or falls back to `Generated_LedMap.h`.
 
-The desktop GUI is the control app for the project. It handles serial communication with the clock and makes it easier to test features without reflashing firmware every time.
+To upload, open the sketch's `.ino` in Arduino IDE, choose **Arduino Leonardo** and the right port, and upload. See [`firmware/README.md`](firmware/README.md) for details and the serial protocol.
 
-Current GUI capabilities:
+### Display modes
 
-- connect to the Leonardo over serial
-- set display mode
-- change brightness
-- toggle 12/24h, leading zero, and colon blink
-- read RTC time
-- set RTC time manually or from the PC time
-- set timer length and start / stop it
-- start / stop / reset the stopwatch
-- change display colors
-- save settings to EEPROM
-- run digit and segment tests
-- read back mapping / status
+Clock, Clock with seconds (MM:SS), Timer, Stopwatch, and Color demo.
 
-## Current files
+### Buttons (clock firmware)
 
-This package currently includes:
+| Button | Clock / other modes | Timer mode | Stopwatch mode |
+| --- | --- | --- | --- |
+| BTN1 (D8) | next mode | next mode | next mode |
+| BTN2 (D9) | jump to Clock | +1 minute | start / stop |
+| BTN3 (D10) | jump to Color demo | -1 minute | reset |
 
-- `smart_clock_backend.ino` — Arduino Leonardo firmware for the 31-pixel 4-digit NeoPixel clock
-- `smart_clock_gui.py` — desktop GUI for colors, brightness, RTC time, timer, stopwatch, and test patterns
-- support for the **hiLetgo DS3231 AT24C32 RTC module** with CR2032 backup battery
+Only short presses are handled right now. Long-press actions are on the to-do list.
 
-## Hardware wiring
-
-### Existing clock board
-
-Keep your existing connections the same:
-
-- NeoPixel data -> `D5`
-- Button 1 -> `D8`
-- Button 2 -> `D9`
-- Button 3 -> `D10`
-- buttons are active-low, so each button should connect the pin to GND when pressed
-
-### DS3231 RTC module wiring
-
-Wire the hiLetgo DS3231 module like this:
-
-- `DS3231 VCC` -> `Leonardo 5V`
-- `DS3231 GND` -> `Leonardo GND`
-- `DS3231 SDA` -> `Leonardo D2 / SDA`
-- `DS3231 SCL` -> `Leonardo D3 / SCL`
-
-Optional:
-
-- `DS3231 SQW` -> leave unconnected for now
-- `32K` -> leave unconnected
-
-### Important battery note
-
-The **CR2032 goes into the RTC module itself**, not into the Leonardo or the clock PCB.
-That battery keeps time when main power is removed.
-
-## Button behavior on-device
-
-### Button 1 (`D8`)
-- short press: next display mode
-- long press: toggle 12/24 hour mode
-
-### Button 2 (`D9`)
-- short press: rotate clock / accent colors
-- long press: change brightness
-
-### Button 3 (`D10`)
-- in timer mode:
-  - short press: add 1 minute
-  - long press: start / stop timer
-- in stopwatch mode:
-  - short press: start / stop stopwatch
-  - long press: reset stopwatch
-- in other modes:
-  - short press: toggle colon blink
-
-## Arduino libraries needed
-
-Install these from Library Manager:
-
-- Adafruit NeoPixel
-- RTClib
-
-## Uploading the firmware
-
-1. Open `smart_clock_backend.ino` in Arduino IDE.
-2. Select **Arduino Leonardo**.
-3. Select the correct port.
-4. Install the libraries if prompted.
-5. Upload.
-
-If your clock was already calibrated and the mapping was saved to EEPROM, the new firmware will try to use that saved mapping automatically.
-
-## Running the GUI
-
-### Python packages
-
-Install:
+## clockWinder desktop app
 
 ```bash
-pip install PySide6 pyserial
+cd softwear/clockWinder_gui
+pip install -r requirements.txt
+python main.py
 ```
 
-### Launch
-
-```bash
-python smart_clock_gui.py
-```
-
-## Serial commands used by the GUI
-
-Examples:
-
-```text
-HELLO SmartClock/1
-STATUS?
-MODE 0
-BRIGHTNESS 64
-COLOR CLOCK FF7A18
-COLOR ACCENT 2080FF
-TIME 2026-04-12 14:30:00
-TIME?
-TIMER SET 300
-TIMER START
-STOPWATCH START
-TEST DIGITS
-TEST SEGMENTS
-SAVE SETTINGS
-```
+It connects over USB serial at 115200 baud. The main window sets modes, colors, brightness, the RTC time, the timer, and the stopwatch. The calibration window walks through each physical LED, assigns it a segment, and exports `ledmap.json` / `Generated_LedMap.h`. Saved maps live in `softwear/clockWinder_gui/clockWinder/ledmaps/`. See [`softwear/clockWinder_gui/README.md`](softwear/clockWinder_gui/README.md).
 
 ## Good first test sequence
 
-1. Wire the DS3231.
-2. Insert the CR2032 into the DS3231 module.
-3. Upload the firmware.
-4. Open the GUI.
-5. Connect to the Leonardo.
-6. Click **Read RTC**.
-7. Click **Set RTC From PC Time**.
-8. Click **Set Mode -> Clock**.
-9. Change the colors and brightness.
-10. Click **Save Settings to EEPROM**.
-11. Run **Digit Test** and **Segment Test** to confirm the saved calibration still matches.
+1. Wire the DS3231 and insert the CR2032.
+2. Flash `clock_calibration_firmware`, map the LEDs in clockWinder, and save to EEPROM.
+3. Flash `clock_firmware`.
+4. In clockWinder: connect, **Read RTC**, then **Set RTC from PC time**.
+5. Pick Clock mode, adjust colors and brightness, and save settings.
 
 ## Troubleshooting
 
-### If the time is wrong after power loss
+- **Time is wrong after power loss:** the CR2032 is missing or dead, SDA/SCL is miswired, or the RTC was never set.
+- **App won't connect:** close the Arduino Serial Monitor and any other serial tool, replug the board, refresh ports, and pick the `/dev/cu.usbmodem...` (macOS) or COM port.
 
-That usually means one of these:
+## Roadmap
 
-- the CR2032 is not installed correctly
-- the battery is dead
-- the RTC module is not wired to SDA / SCL correctly
-- the RTC lost power before it was set at least once
-
-### If the GUI will not connect
-
-- close Arduino Serial Monitor first
-- close any other serial tools
-- unplug / replug the Leonardo
-- refresh ports in the GUI
-- choose the `/dev/cu.usbmodem...` or COM port for the Leonardo
-
-## Next steps for the repo
-
-As the project gets cleaned up, this repository will expand to better separate:
-
-- hardware files and fabrication outputs
-- firmware source modules
-- GUI source code
-- documentation and screenshots
-- future enclosure / 3D printed parts
-
-The long-term goal is to turn this from a class PCB submission into a polished engineering project with clean firmware architecture, cleaner desktop tooling, and a better GitHub portfolio presentation.
+- Enclosure / 3D printed housing
+- Long-press button actions
+- Sensors and smarter modes
+- Hardware v2 with the RTC on the board

@@ -29,3 +29,15 @@ fp-info-cache
 # Exported BOM files
 *.xml
 # *.csv
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# macOS zip junk
+__MACOSX/
+
+# KiCad project-local settings (misnamed copy)
+*kicad_prl
