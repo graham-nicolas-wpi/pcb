@@ -598,7 +598,7 @@ void HostRuntime::update(uint32_t nowMs) {
 }
 
 void HostRuntime::writeInfoJson(JsonObject root) const {
-  root["board"] = "ESP32 DevKit (WROVER-B)";
+  root["board"] = "ESP32-WROOM-32E DevKit";
   root["role"] = "host";
   root["name"] = CLOCK_DEVICE_NAME;
   root["protocol"] = "ClockHost/1";

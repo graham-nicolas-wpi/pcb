@@ -13,6 +13,10 @@
 #include "../ui/AppStateMachine.h"
 #include "../ui/Modes.h"
 
+#ifndef CLOCK_RENDERER_LOCAL_COMMANDS
+#define CLOCK_RENDERER_LOCAL_COMMANDS 0
+#endif
+
 namespace {
 static constexpr size_t kColorTargetMax = 24U;
 
@@ -492,6 +496,10 @@ bool ClockRenderProtocol::handleRuntimeCommand(const String& line) {
     return true;
   }
 
+#if CLOCK_RENDERER_LOCAL_COMMANDS
+  // Convenience commands for driving the 32U4 on its own over USB. Left out of
+  // the default build: the ESP32 host owns modes, colors, timer and stopwatch and
+  // sends finished FRAME24 frames, and the full set no longer fits in 28 KB.
   if (line == "MODE CLOCK_SECONDS") {
     runtime_.useLocalRenderer(nowMs);
     app_.setMode(ClockMode::CLOCK_SECONDS);
@@ -737,6 +745,8 @@ bool ClockRenderProtocol::handleRuntimeCommand(const String& line) {
     replyOK(F("STOPWATCH RESET"));
     return true;
   }
+
+#endif  // CLOCK_RENDERER_LOCAL_COMMANDS
 
   if (line == "SAVE") {
     settings_.save();

@@ -56,7 +56,18 @@ void WebUiServer::registerRoutes() {
   server_.on("/api/export/config.json", HTTP_GET, [this]() { handleExportConfig(); });
   server_.on("/api/export/mapping.json", HTTP_GET, [this]() { handleExportMapping(); });
   server_.on("/api/export/ledmap.h", HTTP_GET, [this]() { handleExportHeader(); });
-  server_.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
+  // The built-in WebServer's serveStatic() returns void and defaults to index.htm,
+  // so serve the page explicitly.
+  server_.on("/", HTTP_GET, [this]() {
+    File page = LittleFS.open("/index.html", "r");
+    if (!page) {
+      server_.send(404, "text/plain", "index.html missing: run pio run -t uploadfs");
+      return;
+    }
+    server_.streamFile(page, "text/html");
+    page.close();
+  });
+  server_.serveStatic("/", LittleFS, "/");
 }
 
 void WebUiServer::appendBootstrapJson(JsonObject root) {

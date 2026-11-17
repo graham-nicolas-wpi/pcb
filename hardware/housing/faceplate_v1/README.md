@@ -18,3 +18,21 @@ The digit windows and light-guide walls are cropped out of that file unchanged; 
 - **Shell:** 7.5 mm hole through the **top wall**, centred at X −85 (above the right-hand digit as seen from the front) and halfway back (z 16.2). From the inside, a 13 × 13 mm square pocket thins the wall to 1.5 mm so the encoder body sits in it (stops it rotating) and the bushing sticks out far enough for the nut. Mount it from inside: encoder body into the pocket, washer + nut on top.
 - **Knob (`clock_knob`):** 20 mm wide, 16 mm tall, 12 gentle waves (±0.35 mm) with a 12° twist, chamfered top with a pointer groove. Underside has a 12.5 mm × 4 mm recess for the nut and bushing end; D bore 6.1 mm round / 4.5 mm flat-to-round, 13.8 mm deep. Print it standing on its open underside (groove up), no supports. If it is loose, print with 0.1 mm less in the bore (`6.1` / `4.5` in the script); if too tight, ream with a 6 mm drill.
 - The encoder module hangs about 10 mm down from the top wall, clear of the board and the shell bosses.
+
+## ESP32 bay and cap (added for the ESP32 host)
+
+The 34 x 60 mm space to the right of the board (seen from the front) holds an ESP32-WROOM-32E
+DevKitC (38-pin, pin rows 25.4 mm apart).
+
+- `clock_esp32_cap` presses into the back of that bay (1.6 mm lip, 0.2 mm clearance; add a drop of
+  glue if it is loose). Print it flat, outside face down.
+- The DevKit hangs inside with its header pins through the two slots, module side facing the display
+  and USB end down. Plug the jumper wires onto the pins from the back: the jumper housings sit in the
+  recess and hold the DevKit against the ledge.
+- `clock_shell` now has a 13 mm wide slot in the bottom wall, open to the back edge, for the ESP32's
+  micro-USB cable (this is the clock's only power cable now).
+- Checked in `build_faceplate.py`: no overlap between the DevKit mock, cap, shell, encoder, board or
+  face plate. DevKit size assumed 28 x 52 mm PCB plus 6 mm antenna overhang; measure yours before
+  printing.
+
+`render_esp32_cap_back.png` shows the cap from the back.
