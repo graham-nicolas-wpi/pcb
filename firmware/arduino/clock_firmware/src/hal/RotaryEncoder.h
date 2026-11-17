@@ -2,7 +2,8 @@
 #include <Arduino.h>
 
 // KY-040 style rotary encoder with push switch.
-// CLK/DT must be on external-interrupt pins (D0, D1, D2, D3 or D7 on the 32U4).
+// CLK must be D0 (PD2/INT2) and DT must be D1 (PD3/INT3): the ISR reads PIND
+// directly and sets up INT2/INT3 itself (no attachInterrupt, to save flash).
 // Only one instance is supported (the ISR uses static state).
 class RotaryEncoder {
  public:
@@ -22,11 +23,11 @@ class RotaryEncoder {
   static constexpr uint16_t kHoldMs = 2000;
 
  private:
-  static void isr();
+  friend void rotaryEncoderIsr();
   static volatile int16_t sSteps;
   static volatile uint8_t sState;
-  static uint8_t sPinClk;
-  static uint8_t sPinDt;
+  uint8_t pinClk_;
+  uint8_t pinDt_;
 
   uint8_t pinSw_;
   bool rawPressed_;

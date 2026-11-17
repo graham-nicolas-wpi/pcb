@@ -16,7 +16,7 @@ class ClockProtocol {
 
   void begin(size_t lineMax = 96U);
   void poll();
-  bool handleLine(const String& rawLine);
+  bool handleLine(char* rawLine);  // trims in place
 
   bool consumeRenderRequested();
   void sendFirmwareInfo() const;
@@ -34,7 +34,7 @@ class ClockProtocol {
                               RgbColor& newColor);
 
  private:
-  bool handleClockCommand(const String& line);
+  bool handleClockCommand(const char* rawLine);
 
   Stream& serial_;
   SettingsStore& settings_;
@@ -42,7 +42,9 @@ class ClockProtocol {
   Rtc_DS3231& rtc_;
   const char* firmwareName_;
   const char* firmwareVersion_;
+  static constexpr size_t kLineBufSize = 97U;
   size_t lineMax_;
-  String lineBuffer_;
+  char lineBuffer_[kLineBufSize];
+  size_t lineLen_;
   bool renderRequested_;
 };

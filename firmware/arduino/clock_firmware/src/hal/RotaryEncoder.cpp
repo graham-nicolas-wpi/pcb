@@ -1,16 +1,18 @@
 #include "RotaryEncoder.h"
 
+#include <avr/interrupt.h>
+
 volatile int16_t RotaryEncoder::sSteps = 0;
 volatile uint8_t RotaryEncoder::sState = 0;
-uint8_t RotaryEncoder::sPinClk = 0;
-uint8_t RotaryEncoder::sPinDt = 0;
 
 // Gray-code transition table: index = (previous AB << 2) | current AB.
 // Invalid (bounced / skipped) transitions count as 0.
 static const int8_t kQuadTable[16] = {0, -1, 1, 0, 1, 0, 0, -1, -1, 0, 0, 1, 0, 1, -1, 0};
 
 RotaryEncoder::RotaryEncoder(uint8_t pinClk, uint8_t pinDt, uint8_t pinSw)
-    : pinSw_(pinSw),
+    : pinClk_(pinClk),
+      pinDt_(pinDt),
+      pinSw_(pinSw),
       rawPressed_(false),
       stablePressed_(false),
       lastChangeMs_(0),
@@ -18,27 +20,35 @@ RotaryEncoder::RotaryEncoder(uint8_t pinClk, uint8_t pinDt, uint8_t pinSw)
       holdFired_(false),
       click_(false),
       longPress_(false),
-      hold_(false) {
-  sPinClk = pinClk;
-  sPinDt = pinDt;
+      hold_(false) {}
+
+// A = CLK on PD2, B = DT on PD3.
+static inline uint8_t readAB() {
+  const uint8_t pind = PIND;
+  return static_cast<uint8_t>((((pind >> 2) & 1U) << 1) | ((pind >> 3) & 1U));
 }
+
+void rotaryEncoderIsr() {
+  const uint8_t ab = readAB();
+  const uint8_t idx = static_cast<uint8_t>(((RotaryEncoder::sState << 2) | ab) & 0x0F);
+  RotaryEncoder::sState = ab;
+  RotaryEncoder::sSteps += kQuadTable[idx];
+}
+
+ISR(INT2_vect) { rotaryEncoderIsr(); }
+ISR(INT3_vect) { rotaryEncoderIsr(); }
 
 void RotaryEncoder::begin() {
-  pinMode(sPinClk, INPUT_PULLUP);
-  pinMode(sPinDt, INPUT_PULLUP);
+  pinMode(pinClk_, INPUT_PULLUP);
+  pinMode(pinDt_, INPUT_PULLUP);
   pinMode(pinSw_, INPUT_PULLUP);  // the KY-040 has no pull-up fitted on SW
-  sState = static_cast<uint8_t>((digitalRead(sPinClk) << 1) | digitalRead(sPinDt));
+  sState = readAB();
   sSteps = 0;
-  attachInterrupt(digitalPinToInterrupt(sPinClk), isr, CHANGE);
-  attachInterrupt(digitalPinToInterrupt(sPinDt), isr, CHANGE);
+  // INT2 / INT3 on any logical change (ISCn1:0 = 01), clear stale flags, enable.
+  EICRA = static_cast<uint8_t>((EICRA & ~((1 << ISC21) | (1 << ISC31))) | (1 << ISC20) | (1 << ISC30));
+  EIFR = (1 << INTF2) | (1 << INTF3);
+  EIMSK |= (1 << INT2) | (1 << INT3);
   lastChangeMs_ = millis();
-}
-
-void RotaryEncoder::isr() {
-  const uint8_t ab = static_cast<uint8_t>((digitalRead(sPinClk) << 1) | digitalRead(sPinDt));
-  const uint8_t idx = static_cast<uint8_t>(((sState << 2) | ab) & 0x0F);
-  sState = ab;
-  sSteps += kQuadTable[idx];
 }
 
 int8_t RotaryEncoder::takeDetents() {

@@ -1,9 +1,13 @@
 #include "Profiles.h"
 
+#include <avr/pgmspace.h>
+#include <string.h>
+
 namespace {
-bool matches(const char* value, const char* expected) {
-  return strcmp(value, expected) == 0;
+bool matchesP(const char* value, PGM_P expected) {
+  return strcmp_P(value, expected) == 0;
 }
+#define matches(value, lit) matchesP((value), PSTR(lit))
 }
 
 bool applyPresetByName(const char* presetName, ClockSettings& settings) {

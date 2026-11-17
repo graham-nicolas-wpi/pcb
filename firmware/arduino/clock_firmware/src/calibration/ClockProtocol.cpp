@@ -1,5 +1,6 @@
 #include "ClockProtocol.h"
 
+#include <avr/pgmspace.h>
 #include <string.h>
 
 #include "../display/LogicalIds.h"
@@ -11,6 +12,10 @@
 
 namespace {
 static constexpr size_t kColorTargetMax = 24U;
+
+// Compare against flash-resident literals (no String class, no RAM copies).
+#define EQ(lit) (strcmp_P(rawLine, PSTR(lit)) == 0)
+#define STARTS(lit) (strncmp_P(rawLine, PSTR(lit), sizeof(lit) - 1U) == 0)
 
 void printTwoDigits(Stream& serial, uint8_t value) {
   if (value < 10U) {
@@ -29,12 +34,15 @@ ClockProtocol::ClockProtocol(Stream& serial, SettingsStore& settings, AppStateMa
       rtc_(rtc),
       firmwareName_(firmwareName),
       firmwareVersion_(firmwareVersion),
-      lineMax_(96U),
-      renderRequested_(false) {}
+      lineMax_(kLineBufSize - 1U),
+      lineLen_(0U),
+      renderRequested_(false) {
+  lineBuffer_[0] = '\0';
+}
 
 void ClockProtocol::begin(size_t lineMax) {
-  lineMax_ = lineMax;
-  lineBuffer_.reserve(lineMax_ + 1U);
+  lineMax_ = (lineMax < kLineBufSize - 1U) ? lineMax : (kLineBufSize - 1U);
+  lineLen_ = 0U;
 }
 
 void ClockProtocol::poll() {
@@ -44,16 +52,17 @@ void ClockProtocol::poll() {
       continue;
     }
     if (c == '\n') {
-      if (lineBuffer_.length() > 0U) {
+      if (lineLen_ > 0U) {
+        lineBuffer_[lineLen_] = '\0';
         handleLine(lineBuffer_);
-        lineBuffer_ = "";
+        lineLen_ = 0U;
       }
       continue;
     }
-    if (lineBuffer_.length() < lineMax_) {
-      lineBuffer_ += c;
+    if (lineLen_ < lineMax_) {
+      lineBuffer_[lineLen_++] = c;
     } else {
-      lineBuffer_ = "";
+      lineLen_ = 0U;
       replyERR(F("LINE TOO LONG"));
     }
   }
@@ -273,32 +282,37 @@ bool ClockProtocol::parseRgbPayload(const char* payload, char* target, size_t ta
   return true;
 }
 
-bool ClockProtocol::handleLine(const String& rawLine) {
-  String line = rawLine;
-  line.trim();
-  if (line.length() == 0U) {
+bool ClockProtocol::handleLine(char* line) {
+  while (*line == ' ' || *line == '\t') {
+    ++line;
+  }
+  size_t len = strlen(line);
+  while (len > 0U && (line[len - 1U] == ' ' || line[len - 1U] == '\t')) {
+    line[--len] = '\0';
+  }
+  if (len == 0U) {
     return false;
   }
+  const char* rawLine = line;
 
-  if (line == "HELLO" || line == "HELLO Clock/1" || line == "HELLO ClockCal/1" ||
-      line == "INFO?" || line == "GET INFO") {
+  if (EQ("HELLO") || EQ("HELLO Clock/1") || EQ("HELLO ClockCal/1") ||
+      EQ("INFO?") || EQ("GET INFO")) {
     sendFirmwareInfo();
     return true;
   }
 
-  if (line == "STATUS?" || line == "GET STATUS") {
+  if (EQ("STATUS?") || EQ("GET STATUS")) {
     sendStatus();
     return true;
   }
 
-  return handleClockCommand(line);
+  return handleClockCommand(rawLine);
 }
 
-bool ClockProtocol::handleClockCommand(const String& line) {
+bool ClockProtocol::handleClockCommand(const char* rawLine) {
   ClockSettings& settings = settings_.mutableSettings();
-  const char* rawLine = line.c_str();
 
-  if (line == "MODE CLOCK_SECONDS") {
+  if (EQ("MODE CLOCK_SECONDS")) {
     app_.setMode(ClockMode::CLOCK_SECONDS);
     settings_.setMode(ClockMode::CLOCK_SECONDS);
     renderRequested_ = true;
@@ -306,7 +320,7 @@ bool ClockProtocol::handleClockCommand(const String& line) {
     return true;
   }
 
-  if (line == "MODE CLOCK") {
+  if (EQ("MODE CLOCK")) {
     app_.setMode(ClockMode::CLOCK);
     settings_.setMode(ClockMode::CLOCK);
     renderRequested_ = true;
@@ -314,7 +328,7 @@ bool ClockProtocol::handleClockCommand(const String& line) {
     return true;
   }
 
-  if (line == "MODE TIMER") {
+  if (EQ("MODE TIMER")) {
     app_.setMode(ClockMode::TIMER);
     settings_.setMode(ClockMode::TIMER);
     renderRequested_ = true;
@@ -322,7 +336,7 @@ bool ClockProtocol::handleClockCommand(const String& line) {
     return true;
   }
 
-  if (line == "MODE STOPWATCH") {
+  if (EQ("MODE STOPWATCH")) {
     app_.setMode(ClockMode::STOPWATCH);
     settings_.setMode(ClockMode::STOPWATCH);
     renderRequested_ = true;
@@ -330,7 +344,7 @@ bool ClockProtocol::handleClockCommand(const String& line) {
     return true;
   }
 
-  if (line == "MODE COLOR_DEMO") {
+  if (EQ("MODE COLOR_DEMO")) {
     app_.setMode(ClockMode::COLOR_DEMO);
     settings_.setMode(ClockMode::COLOR_DEMO);
     renderRequested_ = true;
@@ -338,70 +352,70 @@ bool ClockProtocol::handleClockCommand(const String& line) {
     return true;
   }
 
-  if (line == "HOURMODE 24H") {
+  if (EQ("HOURMODE 24H")) {
     settings_.setHourMode(HourMode::H24);
     renderRequested_ = true;
     replyOK(F("HOURMODE 24H"));
     return true;
   }
 
-  if (line == "HOURMODE 12H") {
+  if (EQ("HOURMODE 12H")) {
     settings_.setHourMode(HourMode::H12);
     renderRequested_ = true;
     replyOK(F("HOURMODE 12H"));
     return true;
   }
 
-  if (line == "SECONDSMODE BLINK") {
+  if (EQ("SECONDSMODE BLINK")) {
     settings_.setSecondsDisplayMode(SecondsDisplayMode::BLINK);
     renderRequested_ = true;
     replyOK(F("SECONDSMODE BLINK"));
     return true;
   }
 
-  if (line == "SECONDSMODE ON") {
+  if (EQ("SECONDSMODE ON")) {
     settings_.setSecondsDisplayMode(SecondsDisplayMode::ON);
     renderRequested_ = true;
     replyOK(F("SECONDSMODE ON"));
     return true;
   }
 
-  if (line == "SECONDSMODE OFF") {
+  if (EQ("SECONDSMODE OFF")) {
     settings_.setSecondsDisplayMode(SecondsDisplayMode::OFF);
     renderRequested_ = true;
     replyOK(F("SECONDSMODE OFF"));
     return true;
   }
 
-  if (line == "TIMERFORMAT AUTO") {
+  if (EQ("TIMERFORMAT AUTO")) {
     settings_.setTimerDisplayFormat(TimerDisplayFormat::AUTO);
     renderRequested_ = true;
     replyOK(F("TIMERFORMAT AUTO"));
     return true;
   }
 
-  if (line == "TIMERFORMAT HHMM") {
+  if (EQ("TIMERFORMAT HHMM")) {
     settings_.setTimerDisplayFormat(TimerDisplayFormat::HH_MM);
     renderRequested_ = true;
     replyOK(F("TIMERFORMAT HHMM"));
     return true;
   }
 
-  if (line == "TIMERFORMAT MMSS") {
+  if (EQ("TIMERFORMAT MMSS")) {
     settings_.setTimerDisplayFormat(TimerDisplayFormat::MM_SS);
     renderRequested_ = true;
     replyOK(F("TIMERFORMAT MMSS"));
     return true;
   }
 
-  if (line == "TIMERFORMAT SSCS") {
+  if (EQ("TIMERFORMAT SSCS")) {
     settings_.setTimerDisplayFormat(TimerDisplayFormat::SS_CS);
     renderRequested_ = true;
     replyOK(F("TIMERFORMAT SSCS"));
     return true;
   }
 
-  if (line == "PRESET RAINBOW" || line == "PRESET PARTY") {
+  if (EQ("PRESET RAINBOW") || EQ("PRESET PARTY")) {
     const char* presetName = rawLine + 7;
     if (!applyPresetByName(presetName, settings)) {
       replyERR(F("PRESET"));
@@ -414,7 +428,7 @@ bool ClockProtocol::handleClockCommand(const String& line) {
     return true;
   }
 
-  if (line.startsWith("COLONBRIGHTNESS ")) {
+  if (STARTS("COLONBRIGHTNESS ")) {
     long value = 0;
     if (!parseIntToken(rawLine + 16, value)) {
       replyERR(F("COLONBRIGHTNESS"));
@@ -427,7 +441,7 @@ bool ClockProtocol::handleClockCommand(const String& line) {
     return true;
   }
 
-  if (line.startsWith("BRIGHTNESS ")) {
+  if (STARTS("BRIGHTNESS ")) {
     long value = 0;
     if (!parseIntToken(rawLine + 11, value)) {
       replyERR(F("BRIGHTNESS"));
@@ -440,7 +454,7 @@ bool ClockProtocol::handleClockCommand(const String& line) {
     return true;
   }
 
-  if (line.startsWith("COLOR ")) {
+  if (STARTS("COLOR ")) {
     char target[kColorTargetMax];
     RgbColor newColor = makeRgbColor(0, 0, 0);
     if (!parseRgbPayload(rawLine + 6, target, sizeof(target), newColor)) {
@@ -458,12 +472,12 @@ bool ClockProtocol::handleClockCommand(const String& line) {
     return true;
   }
 
-  if (line == "RTC READ") {
+  if (EQ("RTC READ")) {
     sendRtcRead();
     return true;
   }
 
-  if (line.startsWith("RTC SET ")) {
+  if (STARTS("RTC SET ")) {
     if (!rtc_.isPresent()) {
       replyERR(F("RTC MISSING"));
       return true;
@@ -482,7 +496,7 @@ bool ClockProtocol::handleClockCommand(const String& line) {
     return true;
   }
 
-  if (line.startsWith("TIMER SET ")) {
+  if (STARTS("TIMER SET ")) {
     long value = 0;
     if (!parseIntToken(rawLine + 10, value)) {
       replyERR(F("TIMER SET"));
@@ -499,7 +513,7 @@ bool ClockProtocol::handleClockCommand(const String& line) {
     return true;
   }
 
-  if (line == "TIMER START") {
+  if (EQ("TIMER START")) {
     app_.startTimer(millis(), settings.timerPresetSeconds);
     settings_.setMode(ClockMode::TIMER);
     renderRequested_ = true;
@@ -507,21 +521,21 @@ bool ClockProtocol::handleClockCommand(const String& line) {
     return true;
   }
 
-  if (line == "TIMER STOP") {
+  if (EQ("TIMER STOP")) {
     app_.stopTimer(millis());
     renderRequested_ = true;
     replyOK(F("TIMER STOP"));
     return true;
   }
 
-  if (line == "TIMER RESET") {
+  if (EQ("TIMER RESET")) {
     app_.resetTimer(settings.timerPresetSeconds);
     renderRequested_ = true;
     replyOK(F("TIMER RESET"));
     return true;
   }
 
-  if (line == "STOPWATCH START") {
+  if (EQ("STOPWATCH START")) {
     app_.startStopwatch(millis());
     settings_.setMode(ClockMode::STOPWATCH);
     renderRequested_ = true;
@@ -529,14 +543,14 @@ bool ClockProtocol::handleClockCommand(const String& line) {
     return true;
   }
 
-  if (line == "STOPWATCH STOP") {
+  if (EQ("STOPWATCH STOP")) {
     app_.stopStopwatch(millis());
     renderRequested_ = true;
     replyOK(F("STOPWATCH STOP"));
     return true;
   }
 
-  if (line == "STOPWATCH RESET") {
+  if (EQ("STOPWATCH RESET")) {
     app_.resetStopwatch(millis());
     renderRequested_ = true;
     replyOK(F("STOPWATCH RESET"));
@@ -544,6 +558,6 @@ bool ClockProtocol::handleClockCommand(const String& line) {
   }
 
   serial_.print(F("ERR UNKNOWN "));
-  serial_.println(line);
+  serial_.println(rawLine);
   return true;
 }
