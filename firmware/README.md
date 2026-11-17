@@ -1,132 +1,78 @@
-# ClockCal starter project
+# Firmware Overview
 
-This is a generated starter project for your NeoPixel four-digit clock.
+This repo now has one permanent two-MCU product architecture:
 
-## Hardware assumptions
-- Arduino Leonardo / ATmega32U4
-- 31 WS2812 LEDs on `D5`
-- 3 active-low buttons on `D8`, `D9`, `D10`
-- Future DS3231 RTC on I2C
+- Leonardo on the custom PCB as the renderer/runtime coprocessor
+- ESP32 as the external host platform over header-accessible UART
 
-## Folder layout
-- `firmware/ClockCal_Firmware/` — Arduino firmware starter
-- `gui/clockcal_tool.py` — desktop calibration GUI starter
-- `gui/requirements.txt` — Python dependencies
+## Leonardo Firmware
 
-## First steps
-1. Install Arduino library `Adafruit NeoPixel`.
-2. Open `ClockCal_Firmware.ino` in Arduino IDE.
-3. Upload to your Leonardo.
-4. In Serial Monitor, try:
-   - `HELLO ClockCal/1`
-   - `INFO?`
-   - `NEXT`
-   - `ASSIGN 0`
-   - `MAP?`
-   - `TEST SEGMENTS`
-5. For the GUI:
-   - `pip install -r gui/requirements.txt`
-   - `python gui/clockcal_tool.py`
+Folders:
 
-## Notes
-- `Generated_LedMap.h` starts as an identity-map placeholder.
-- After calibration, export a real header from the GUI and replace it.
+- `arduino/clock_firmware/` - normal renderer runtime using `ClockRender/1`
+- `arduino/clock_calibration_firmware/` - calibration and map-writing firmware using `ClockCal/1`
 
-# Firmware
+Leonardo responsibilities:
 
-This folder contains the Arduino-side firmware for the **Modular NeoPixel Smart Clock**.
+- render the 31 logical targets on the onboard WS2812 chain
+- keep physical mapping and calibration board-native
+- read the board buttons on `D8`, `D9`, `D10`
+- read the DS3231 over I2C
+- support stable runtime commands and `FRAME24` rendering
+- provide a useful local fallback mode when the ESP32 host is absent
 
-The firmware is responsible for driving the 31-pixel 4-digit display, handling button input, reading and writing RTC time, storing settings, and responding to commands from the desktop GUI.
+Why runtime and calibration remain split:
 
-## Current hardware target
+- ATmega32U4 flash is tight
+- calibration tools are still important, but they do not belong in every everyday runtime build
+- keeping calibration separate makes the normal runtime leaner and more durable
 
-- **Arduino Leonardo / ATmega32U4**
-- **31 WS2812 / NeoPixel LEDs** on `D5`
-- **3 active-low buttons** on `D8`, `D9`, and `D10`
-- **DS3231 RTC** on I2C
+## ESP32 Firmware
 
-## Purpose of this firmware
+Folder:
 
-The firmware is meant to grow beyond a one-off class sketch into a cleaner modular clock codebase.
+- `platformio/esp32_clock/`
 
-Current goals:
+ESP32 responsibilities:
 
-- drive the custom 4-digit NeoPixel clock display
-- support saved logical LED mapping
-- support RTC-backed timekeeping
-- provide timer and stopwatch modes
-- support configurable colors and brightness
-- support serial control from the desktop GUI
-- keep the architecture clean enough to expand later
+- own saved presets, faces, widgets, and schedules
+- own LittleFS config and browser-based UX
+- own NTP, network policy, and future integrations
+- own command generation toward the Leonardo renderer
+- compile high-level host features into stable renderer commands or `FRAME24`
 
-## Expected structure
+The active ESP32 path no longer assumes direct control of the NeoPixel chain, button wiring, or RTC wiring on the custom board.
 
-This firmware area is being cleaned up into a more modular layout.
+## Wiring Contract
 
-Planned structure:
+Preferred host link:
 
-- `arduino/` — Arduino IDE project files
-- `src/hal/` — hardware abstraction layers like buttons, pixels, and RTC
-- `src/display/` — logical IDs, LED mapping, and display rendering
-- `src/calibration/` — calibration protocol and mapping control
-- `src/settings/` — EEPROM-backed settings and profiles
-- `src/ui/` — mode handling and state machine logic
-- `src/faces/` — clock face and mode-specific rendering
+- ESP32 `GPIO17 TX` -> Leonardo `D0 / RX`
+- Leonardo `D1 / TX` -> ESP32 `GPIO16 RX` through level protection
+- common `GND`
 
-## Current important files
+This architecture avoids PCB redesign and avoids soldering to hidden custom-board traces.
 
-Examples of the files this firmware area is centered around:
+## Desktop App Relationship
 
-- `ClockCal_Firmware.ino` or renamed firmware entry file
-- `Generated_LedMap.h`
-- button handling files
-- logical display / mapping files
-- calibration controller files
-- RTC support files
+The desktop app in `../softwear/clockWinder_gui/` still matters for:
 
-## Hardware assumptions
+- direct Leonardo runtime control
+- calibration using the separate calibration sketch
+- bench testing and development
 
-### Display and buttons
+The long-term primary UX for product features is the ESP32 web/API stack.
 
-- NeoPixel data line -> `D5`
-- Button 1 -> `D8`
-- Button 2 -> `D9`
-- Button 3 -> `D10`
-- buttons are active-low and connect to GND when pressed
+## What To Use
 
-### DS3231 RTC
+### Board bring-up
 
-- `VCC` -> `5V`
-- `GND` -> `GND`
-- `SDA` -> `D2 / SDA`
-- `SCL` -> `D3 / SCL`
+Use Leonardo runtime plus the calibration sketch.
 
-## Basic workflow
+### Product feature work
 
-1. Open the firmware project in Arduino IDE.
-2. Select **Arduino Leonardo**.
-3. Install the required libraries.
-4. Upload the firmware.
-5. Connect with the desktop GUI or Serial Monitor.
-6. Verify the mapping, RTC, and display modes.
+Use the ESP32 PlatformIO project and treat the Leonardo as a renderer coprocessor.
 
-## Useful serial commands
+## Reference
 
-Examples:
-
-- `HELLO ClockCal/1`
-- `INFO?`
-- `STATUS?`
-- `NEXT`
-- `PREV`
-- `ASSIGN 0`
-- `MAP?`
-- `TEST SEGMENTS`
-- `TEST DIGITS`
-- `SAVE`
-
-## Notes
-
-- `Generated_LedMap.h` should eventually contain the real calibrated logical-to-physical mapping.
-- EEPROM-backed mapping and settings are important parts of this firmware design.
-- This folder README should describe the firmware specifically, while the root README explains the full project.
+- canonical architecture and protocol: [../docs/leonardo-renderer-esp32-host.md](../docs/leonardo-renderer-esp32-host.md)

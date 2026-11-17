@@ -39,7 +39,7 @@ class ParsedLine:
 
 class ClockProtocol:
     @staticmethod
-    def hello(protocol: str = "Clock/1") -> str:
+    def hello(protocol: str = "ClockRender/1") -> str:
         return f"HELLO {protocol}"
 
     @staticmethod
@@ -204,7 +204,12 @@ class ClockProtocol:
         if text.startswith("OK STATUS "):
             data = _parse_key_values(text.split()[2:])
             data["current_phys"] = _int_value(data, "CUR", 0)
-            data["mapping_valid"] = None if "VALID" not in data else _bool_value(data, "VALID")
+            if "MAP_VALID" in data:
+                data["mapping_valid"] = _bool_value(data, "MAP_VALID")
+            elif "VALID" in data:
+                data["mapping_valid"] = _bool_value(data, "VALID")
+            else:
+                data["mapping_valid"] = None
             data["brightness"] = _int_value(data, "BRIGHTNESS", 64)
             data["colon_brightness"] = _int_value(data, "COLONBRIGHTNESS", 255)
             data["timer_preset"] = _int_value(data, "TIMER_PRESET", 300)
@@ -214,6 +219,8 @@ class ClockProtocol:
             data["stopwatch_running"] = _bool_value(data, "STOPWATCH_RUNNING")
             data["rainbow"] = _bool_value(data, "RAINBOW")
             data["calibration_mode"] = _bool_value(data, "CAL")
+            data["control"] = data.get("CONTROL", "LOCAL")
+            data["frame"] = data.get("FRAME", "LOCAL")
             return ParsedLine(kind="status", raw=text, data=data)
 
         if text.startswith("CUR "):
@@ -259,6 +266,24 @@ class ClockProtocol:
                     "lost_power": lost_power,
                 },
             )
+
+        if text.startswith("EV "):
+            if text == "EV TIMER DONE":
+                return ParsedLine(kind="event", raw=text, data={"event": "timer_done"})
+            if text == "EV HOST TIMEOUT":
+                return ParsedLine(kind="event", raw=text, data={"event": "host_timeout"})
+            if text.startswith("EV BUTTON "):
+                parts = text.split()
+                return ParsedLine(
+                    kind="event",
+                    raw=text,
+                    data={
+                        "event": "button",
+                        "button": parts[2] if len(parts) > 2 else "",
+                        "press": parts[3] if len(parts) > 3 else "",
+                    },
+                )
+            return ParsedLine(kind="event", raw=text, data={"event": text[3:]})
 
         if text.startswith("ERR "):
             return ParsedLine(kind="error", raw=text, data={"message": text[4:]})

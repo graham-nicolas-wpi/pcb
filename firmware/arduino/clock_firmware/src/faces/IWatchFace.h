@@ -2,13 +2,11 @@
 
 #include <Arduino.h>
 
-#include "../display/LogicalDisplay.h"
-#include "../hal/PixelDriver_NeoPixel.h"
+#include "../render/SegmentFrame.h"
 #include "../settings/SettingsStore.h"
 
 struct FaceRenderState {
-  LogicalDisplay& display;
-  PixelDriver_NeoPixel& pixels;
+  SegmentFrame& frame;
   const ClockSettings& settings;
   uint8_t digits[4];
   bool blankLeadingDigit;
@@ -28,7 +26,5 @@ class IWatchFace {
   virtual void render(const FaceRenderState& state) = 0;
 
  protected:
-  static uint32_t toColor(const PixelDriver_NeoPixel& pixels, const RgbColor& color);
-  static uint32_t toColorScaled(const PixelDriver_NeoPixel& pixels, const RgbColor& color,
-                                uint8_t scale);
+  static RgbColor scaleColor(const RgbColor& color, uint8_t scale);
 };

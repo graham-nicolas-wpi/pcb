@@ -6,7 +6,24 @@ import serial
 from PySide6 import QtCore
 from serial.tools import list_ports
 
-from .constants import SERIAL_BAUDRATE, SERIAL_POLL_INTERVAL_MS
+from .constants import SERIAL_BAUDRATE, SERIAL_POLL_INTERVAL_MS, WIFI_DEFAULT_PORT
+
+
+def network_url(port_name: str) -> Optional[str]:
+    """Return a pyserial socket:// URL if port_name names a WiFi clock, else None.
+
+    Accepts "socket://host:port", "esp32-clock.local", "192.168.4.1" or "host:port".
+    Serial ports (COM3, /dev/tty..., /dev/cu...) return None.
+    """
+    name = port_name.strip()
+    if "://" in name:
+        return name
+    if name.upper().startswith("COM") or name.startswith("/dev/"):
+        return None
+    if "." in name or ":" in name:
+        host, _, port = name.partition(":")
+        return f"socket://{host}:{port or WIFI_DEFAULT_PORT}"
+    return None
 
 
 class SerialWorker(QtCore.QObject):
@@ -34,6 +51,8 @@ class SerialWorker(QtCore.QObject):
     @QtCore.Slot()
     def refresh_ports(self) -> None:
         ports = sorted(port.device for port in list_ports.comports())
+        # WiFi clock (ESP32 host). Type an IP instead if .local names don't resolve.
+        ports.append(f"esp32-clock.local:{WIFI_DEFAULT_PORT}")
         self.ports_changed.emit(ports)
 
     @QtCore.Slot(str)
@@ -44,7 +63,15 @@ class SerialWorker(QtCore.QObject):
             self.connection_changed.emit(False, "No serial port selected")
             return
 
+        url = network_url(clean_port)
         try:
+            if url is not None:
+                serial_port = serial.serial_for_url(url, timeout=0, write_timeout=2)
+                self._serial = serial_port
+                self._port_name = url
+                self._buffer.clear()
+                self.connection_changed.emit(True, f"Connected over WiFi to {url}")
+                return
             serial_port = serial.Serial(
                 port=clean_port,
                 baudrate=SERIAL_BAUDRATE,
@@ -102,7 +129,8 @@ class SerialWorker(QtCore.QObject):
             waiting = self._serial.in_waiting
             if waiting <= 0:
                 return
-            chunk = self._serial.read(waiting)
+            # Network ports report in_waiting as 0/1, so read a whole block.
+            chunk = self._serial.read(max(waiting, 4096) if "://" in self._port_name else waiting)
             if not chunk:
                 return
             self._buffer.extend(chunk)

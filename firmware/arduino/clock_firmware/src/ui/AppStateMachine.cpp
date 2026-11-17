@@ -171,12 +171,10 @@ bool AppStateMachine::stopwatchRunning() const {
   return stopwatchRunning_;
 }
 
-void AppStateMachine::render(LogicalDisplay& display, PixelDriver_NeoPixel& pixels,
-                             const ClockSettings& settings, const DateTime& now,
-                             uint32_t nowMs) {
+void AppStateMachine::buildFrame(SegmentFrame& frame, const ClockSettings& settings,
+                                 const DateTime& now, uint32_t nowMs) {
   FaceRenderState state = {
-      display,
-      pixels,
+      frame,
       settings,
       {0, 0, 0, 0},
       false,

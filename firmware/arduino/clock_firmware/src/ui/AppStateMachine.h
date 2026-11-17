@@ -3,9 +3,9 @@
 #include <Arduino.h>
 #include <RTClib.h>
 
-#include "../display/LogicalDisplay.h"
 #include "../faces/Face_ClassicClock.h"
 #include "../faces/Face_Timer.h"
+#include "../render/SegmentFrame.h"
 #include "../settings/SettingsStore.h"
 #include "Modes.h"
 
@@ -36,8 +36,8 @@ class AppStateMachine {
   uint32_t stopwatchElapsedMs(uint32_t nowMs) const;
   bool stopwatchRunning() const;
 
-  void render(LogicalDisplay& display, PixelDriver_NeoPixel& pixels,
-              const ClockSettings& settings, const DateTime& now, uint32_t nowMs);
+  void buildFrame(SegmentFrame& frame, const ClockSettings& settings, const DateTime& now,
+                  uint32_t nowMs);
 
  private:
   static constexpr uint32_t kRefreshMs = 100UL;
