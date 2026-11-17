@@ -6,7 +6,16 @@ PixelDriver_NeoPixel::PixelDriver_NeoPixel(uint8_t pin, uint16_t count)
 void PixelDriver_NeoPixel::begin() { mPixels.begin(); }
 void PixelDriver_NeoPixel::setBrightness(uint8_t brightness) { mPixels.setBrightness(brightness); }
 void PixelDriver_NeoPixel::clear() { mPixels.clear(); }
-void PixelDriver_NeoPixel::show() { mPixels.show(); }
+void PixelDriver_NeoPixel::show() {
+  if (mNightRed > 0) {
+    const uint32_t red = mPixels.Color(mNightRed, 0, 0);
+    for (uint16_t i = 0; i < mPixels.numPixels(); ++i) {
+      if (mPixels.getPixelColor(i) != 0) mPixels.setPixelColor(i, red);
+    }
+  }
+  mPixels.show();
+}
+void PixelDriver_NeoPixel::setNightRed(uint8_t level) { mNightRed = level; }
 void PixelDriver_NeoPixel::setPixelColor(uint16_t index, uint32_t color) { mPixels.setPixelColor(index, color); }
 uint32_t PixelDriver_NeoPixel::color(uint8_t r, uint8_t g, uint8_t b) const { return mPixels.Color(r, g, b); }
 uint16_t PixelDriver_NeoPixel::count() const { return mPixels.numPixels(); }

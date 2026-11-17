@@ -27,7 +27,7 @@ void Face_ClassicClock::render(const FaceRenderState& state) {
   state.display.renderDigits(state.digits, digitColors, state.blankLeadingDigit);
   state.display.setColon(
       state.colonTopOn, state.colonBottomOn,
-      toColorScaled(state.pixels, colonColor, state.settings.colonBrightness));
+      toColorScaled(state.pixels, colonColor, colonScale(state.settings)));
   state.display.setDecimal(
       state.decimalOn,
       toColorScaled(state.pixels, state.decimalColor, state.settings.brightness));

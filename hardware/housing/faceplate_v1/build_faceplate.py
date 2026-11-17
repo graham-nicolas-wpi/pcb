@@ -80,6 +80,14 @@ for x,y in spos:
     shell=shell.union(g)
 # USB notch in the left wall, open to the front edge
 shell=shell.cut(box(x1-WALL-1,x1+1,uy-6.5,uy+6.5,zf-1,11.0)).clean()
+# ---- rotary encoder (KY-040) through the TOP wall, shaft pointing up (+Y)
+ENC_X=-85.0                      # above the right-hand digit as seen from the front
+ENC_Z=zf+DEPTH/2                 # middle of the shell depth
+ENC_HOLE=7.5                     # M7 bushing
+ENC_POCKET=13.0; ENC_WALL=1.5    # square pocket for the 12x12 body, leaves 1.5 mm wall for the nut
+yi_top=y1-WALL                   # inner face of the top wall
+shell=shell.cut(cq.Workplane("XZ",origin=(ENC_X,y1+1,ENC_Z)).circle(ENC_HOLE/2).extrude(WALL+2))
+shell=shell.cut(box(ENC_X-ENC_POCKET/2,ENC_X+ENC_POCKET/2,yi_top-0.5,y1-ENC_WALL,ENC_Z-ENC_POCKET/2,ENC_Z+ENC_POCKET/2))
 sv=shell.val()
 print("shell valid",sv.isValid(),"solids",len(shell.solids().vals()),"vol",round(sv.Volume(),1))
 # ---- board mock for renders/checks
@@ -87,9 +95,33 @@ board=box(X0-BW,X0,Y0-BH,Y0,ZB,ZB+BT)
 for x,y in bpos: board=board.cut(cyl(x,y,3.2,ZB-1,ZB+BT+1))
 for nm,o in [("plate∩shell",pv.intersect(sv)),("plate∩board",pv.intersect(board.val())),("shell∩board",sv.intersect(board.val()))]:
     print(nm,"overlap vol",round(o.Volume(),4))
+# ---- encoder mock (12x12x6.5 body, 1.6 PCB 18.6 x 26.6, bushing 7 mm) for checks/renders
+ey=y1-ENC_WALL                    # encoder body top sits against the thinned wall
+enc=box(ENC_X-6,ENC_X+6,ey-6.5,ey,ENC_Z-6,ENC_Z+6)
+enc=enc.union(box(ENC_X-13.3,ENC_X+5.3,ey-8.1,ey-6.5,ENC_Z-9.3,ENC_Z+9.3))
+enc=enc.union(cq.Workplane("XZ",origin=(ENC_X,ey,ENC_Z)).circle(3.5).extrude(-5.0))
+enc=enc.union(cq.Workplane("XZ",origin=(ENC_X,ey+5.0,ENC_Z)).circle(3.0).extrude(-11.0))   # shaft tip ~16 mm above the body (photo 0068)
+print("shell∩encoder overlap vol",round(sv.intersect(enc.val()).Volume(),4),
+      " encoder∩board",round(enc.val().intersect(board.val()).Volume(),4),
+      " encoder∩plate",round(enc.val().intersect(pv).Volume(),4))
+# ---- knob: 20 mm, 16 mm tall, 12 subtle waves with a slight twist, 6 mm D bore
+import math
+K_R=10.0; K_AMP=0.35; K_N=12; K_H=16.0; K_TWIST=12.0
+pts=[((K_R+K_AMP*math.cos(K_N*t))*math.cos(t),(K_R+K_AMP*math.cos(K_N*t))*math.sin(t))
+     for t in [2*math.pi*i/360 for i in range(360)]]
+knob=cq.Workplane("XY").spline(pts,periodic=True).close().twistExtrude(K_H,K_TWIST)
+knob=knob.faces(">Z").edges().chamfer(0.8)
+knob=knob.cut(cyl(0,0,12.5,-1,4.0))                     # clears the M7 nut and the bushing end
+dbore=cq.Workplane("XY").workplane(offset=-1).circle(6.1/2).extrude(14.8)  # bore up to z=13.8
+dbore=dbore.cut(box(-5,5,-5,-6.1/2+(6.1-4.5),-2,15))    # D flat: 4.5 mm flat-to-round (measured 4.37)
+knob=knob.cut(dbore)
+knob=knob.cut(box(-0.6,0.6,2.5,K_R-1.2,K_H-0.6,K_H+1))   # pointer groove on the top face
+kv=knob.val(); print("knob valid",kv.isValid(),"vol",round(kv.Volume(),1))
+# knob placed on the encoder for the assembly: axis along +Y, 1 mm above the shell
+knob_pl=knob.rotate((0,0,0),(1,0,0),-90).translate((ENC_X,y1+1.0,ENC_Z))
 import os
-for nm,o in [("clock_front_plate",plate),("clock_shell",shell),("board_reference",board)]:
+for nm,o in [("clock_front_plate",plate),("clock_shell",shell),("board_reference",board),("clock_knob",knob),("encoder_reference",enc)]:
     cq.exporters.export(o,os.path.join(OUT,nm+".step"))
     cq.exporters.export(o,os.path.join(OUT,nm+".stl"),tolerance=0.02,angularTolerance=0.15)
-asm=cq.Assembly(); asm.add(plate,name="front_plate",color=cq.Color(0.95,0.95,0.92)); asm.add(shell,name="shell",color=cq.Color(0.15,0.15,0.17)); asm.add(board,name="pcb_reference",color=cq.Color(0.1,0.45,0.2))
+asm=cq.Assembly(); asm.add(plate,name="front_plate",color=cq.Color(0.95,0.95,0.92)); asm.add(shell,name="shell",color=cq.Color(0.15,0.15,0.17)); asm.add(board,name="pcb_reference",color=cq.Color(0.1,0.45,0.2)); asm.add(enc,name="encoder_reference",color=cq.Color(0.6,0.6,0.62)); asm.add(knob_pl,name="knob",color=cq.Color(0.95,0.95,0.92))
 asm.save(os.path.join(OUT,"clock_assembly.step"))

@@ -29,6 +29,8 @@ class IWatchFace {
 
  protected:
   static uint32_t toColor(const PixelDriver_NeoPixel& pixels, const RgbColor& color);
+  // Colon brightness is relative to the main brightness, so the knob dims it too.
+  static uint8_t colonScale(const ClockSettings& settings);
   static uint32_t toColorScaled(const PixelDriver_NeoPixel& pixels, const RgbColor& color,
                                 uint8_t scale);
 };
