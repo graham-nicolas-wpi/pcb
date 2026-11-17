@@ -57,8 +57,9 @@ for x,y in bpos: plate=plate.cut(cyl(x,y,INS_D,B_FLOOR,ZB))
 for x,y in spos: plate=plate.cut(cyl(x,y,INS_D,S_TOP-S_DEPTH,S_TOP))
 # USB plug notch + C1 capacitor hole
 uy=Y0-USB_BY
-plate=plate.cut(box(X0-0.3,x1+1,uy-6.5,uy+6.5,-1,T+RIB_H+1))
-plate=plate.cut(cyl(X0-C1[0],Y0-C1[1],6.2,-1,T+0.01))
+SKIN=0.4  # face stays solid; hidden reliefs on the inside only
+plate=plate.cut(box(X0-0.3,x1-0.8,uy-6.5,uy+6.5,SKIN,T+RIB_H+1))
+plate=plate.cut(cyl(X0-C1[0],Y0-C1[1],6.2,SKIN,T+0.01))
 plate=plate.union(cq.Workplane(obj=core)).clean()
 pv=plate.val()
 print("plate valid",pv.isValid(),"solids",len(plate.solids().vals()),"vol",round(pv.Volume(),1))
