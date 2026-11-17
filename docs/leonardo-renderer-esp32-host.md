@@ -8,13 +8,14 @@ The current custom PCB remains unchanged.
 
 - Leonardo stays permanently installed on the custom board
 - Leonardo keeps ownership of the onboard NeoPixel data path, board buttons, and DS3231 path
-- ESP32-WROOM-32E is an external host connected through exposed headers only
+- an ESP32 DevKit (WROOM-32E or WROVER-B) is an external host connected through exposed headers only
 - the main plan does not involve rewiring `LED_DIN`, soldering to hidden traces, or replacing the Leonardo on this board revision
 
 Recommended UART wiring:
 
-- ESP32 `GPIO17 TX` -> Leonardo `D0 / RX`
-- Leonardo `D1 / TX` -> ESP32 `GPIO16 RX` through level protection
+- ESP32 `GPIO26 TX` -> Leonardo `D0 / RX` (J2 pin 5)
+- Leonardo `D1 / TX` (J2 pin 4) -> ESP32 `GPIO27 RX` through a 1k/2k divider
+- GPIO16/17 are not used because WROVER modules wire them to PSRAM
 - common `GND`
 - share power through the accessible headers as appropriate for the build
 

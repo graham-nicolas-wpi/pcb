@@ -262,6 +262,7 @@ void SettingsStore::writeConfigJson(JsonObject root) const {
   runtime["effect"] = effectModeName(config_.runtime.effect);
   runtime["brightness"] = config_.runtime.brightness;
   runtime["colonBrightness"] = config_.runtime.colonBrightness;
+  runtime["nightRed"] = config_.runtime.nightRed;
   runtime["rainbowEnabled"] = config_.runtime.rainbowEnabled;
   runtime["timerPresetSeconds"] = config_.runtime.timerPresetSeconds;
   runtime["activePresetId"] = config_.runtime.activePresetId;
@@ -411,6 +412,13 @@ bool SettingsStore::readConfig(JsonObjectConst root, bool& restartRequired, Stri
         rendererLink["buttonEvents"] | updated.rendererLink.buttonEvents;
   }
 
+  // GPIO16/17 belong to the PSRAM on WROVER modules; older configs used them.
+  if (updated.rendererLink.txPin == 16 || updated.rendererLink.txPin == 17 ||
+      updated.rendererLink.rxPin == 16 || updated.rendererLink.rxPin == 17) {
+    updated.rendererLink.txPin = ProjectConfig::kDefaultRendererTxPin;
+    updated.rendererLink.rxPin = ProjectConfig::kDefaultRendererRxPin;
+  }
+
   JsonObjectConst time = root["time"];
   if (!time.isNull()) {
     updated.time.ntpEnabled = time["ntpEnabled"] | updated.time.ntpEnabled;
@@ -433,6 +441,7 @@ bool SettingsStore::readConfig(JsonObjectConst root, bool& restartRequired, Stri
     updated.runtime.effect = effectModeFromString(String(static_cast<const char*>(runtime["effect"] | effectModeName(updated.runtime.effect))));
     updated.runtime.brightness = runtime["brightness"] | updated.runtime.brightness;
     updated.runtime.colonBrightness = runtime["colonBrightness"] | updated.runtime.colonBrightness;
+    updated.runtime.nightRed = runtime["nightRed"] | updated.runtime.nightRed;
     updated.runtime.rainbowEnabled = runtime["rainbowEnabled"] | updated.runtime.rainbowEnabled;
     updated.runtime.calibrationMode = runtime["calibrationMode"] | updated.runtime.calibrationMode;
     updated.runtime.calibrationCursor = runtime["calibrationCursor"] | updated.runtime.calibrationCursor;

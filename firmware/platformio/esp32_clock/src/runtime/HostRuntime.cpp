@@ -7,6 +7,39 @@
 #include <time.h>
 
 namespace {
+// Knob brightness steps (same 16 levels as the 32U4 knob firmware 0.4.0).
+const uint8_t kKnobLevels[] = {6, 10, 16, 24, 32, 44, 56, 72, 88, 108, 128, 152, 176, 200, 228, 255};
+constexpr size_t kKnobLevelCount = sizeof(kKnobLevels) / sizeof(kKnobLevels[0]);
+constexpr uint32_t kNightPauseMs = 700;   // pause at the lowest step before night red
+constexpr uint8_t kNightRedLevel = 6;     // red value used for every lit segment
+constexpr uint32_t kMaxTimerSeconds = 12UL * 3600UL;
+
+size_t nearestKnobLevel(uint8_t brightness) {
+  size_t best = 0;
+  for (size_t index = 0; index < kKnobLevelCount; ++index) {
+    if (abs(static_cast<int>(kKnobLevels[index]) - brightness) <
+        abs(static_cast<int>(kKnobLevels[best]) - brightness)) {
+      best = index;
+    }
+  }
+  return best;
+}
+
+uint32_t timerStepUp(uint32_t s) {
+  if (s < 60UL) return s + 5UL;
+  if (s < 600UL) return s + 30UL;
+  if (s < 3600UL) return s + 60UL;
+  return s + 300UL;
+}
+
+uint32_t timerStepDown(uint32_t s) {
+  if (s <= 5UL) return 5UL;
+  if (s <= 60UL) return s - 5UL;
+  if (s <= 600UL) return s - 30UL;
+  if (s <= 3600UL) return s - 60UL;
+  return s - 300UL;
+}
+
 DateTime fromTm(const tm& value) {
   return DateTime(value.tm_year + 1900, value.tm_mon + 1, value.tm_mday, value.tm_hour,
                   value.tm_min, value.tm_sec);
@@ -17,6 +50,7 @@ HostRuntime::HostRuntime(SettingsStore& store, LeonardoClient& renderer)
     : store_(store), renderer_(renderer) {}
 
 void HostRuntime::begin() {
+  knob_.begin(ProjectConfig::kKnobClkPin, ProjectConfig::kKnobDtPin, ProjectConfig::kKnobSwPin);
   timerRemainingMs_ = config().runtime.timerPresetSeconds * 1000UL;
   timerRunning_ = false;
   stopwatchRunning_ = false;
@@ -110,6 +144,83 @@ void HostRuntime::setBrightness(uint8_t brightness) {
 void HostRuntime::setColonBrightness(uint8_t brightness) {
   mutableConfig().runtime.colonBrightness = brightness;
   markDirty();
+}
+
+void HostRuntime::setNightRed(bool enabled) {
+  mutableConfig().runtime.nightRed = enabled;
+  markDirty();
+}
+
+void HostRuntime::knobBrightness(int16_t detents, uint32_t nowMs) {
+  const bool paused = (nowMs - lastKnobTurnMs_) >= kNightPauseMs;
+  if (config().runtime.nightRed) {
+    if (detents > 0) {
+      setNightRed(false);
+      setBrightness(kKnobLevels[0]);
+    }
+    return;
+  }
+  size_t level = nearestKnobLevel(config().runtime.brightness);
+  if (detents < 0 && level == 0) {
+    // Stop at the lowest step; a fresh click down after a pause = night red.
+    if (paused) setNightRed(true);
+    return;
+  }
+  const int target = constrain(static_cast<int>(level) + detents, 0,
+                               static_cast<int>(kKnobLevelCount) - 1);
+  setBrightness(kKnobLevels[target]);
+  setColonBrightness(kKnobLevels[target]);
+}
+
+void HostRuntime::knobTimerLength(int16_t detents) {
+  uint32_t seconds = config().runtime.timerPresetSeconds;
+  for (int16_t i = 0; i < abs(detents); ++i) {
+    seconds = detents > 0 ? timerStepUp(seconds) : timerStepDown(seconds);
+  }
+  setTimerPresetSeconds(min(seconds, kMaxTimerSeconds));
+}
+
+void HostRuntime::handleKnob(uint32_t nowMs) {
+  const ClockMode mode = config().runtime.mode;
+  const int16_t detents = knob_.takeDetents();
+  if (detents != 0) {
+    if (mode == ClockMode::TIMER && !timerRunning_) {
+      knobTimerLength(detents);
+    } else {
+      knobBrightness(detents, nowMs);
+    }
+    lastKnobTurnMs_ = nowMs;
+  }
+
+  switch (knob_.poll(nowMs)) {
+    case RotaryKnob::Press::CLICK:
+      if (mode == ClockMode::TIMER) {
+        setMode(ClockMode::STOPWATCH);
+      } else if (mode == ClockMode::STOPWATCH) {
+        setMode(ClockMode::CLOCK);
+      } else {
+        setMode(ClockMode::TIMER);
+      }
+      break;
+    case RotaryKnob::Press::LONG:
+      if (mode == ClockMode::TIMER) {
+        timerRunning_ ? stopTimer(nowMs) : startTimer(nowMs);
+      } else if (mode == ClockMode::STOPWATCH) {
+        stopwatchRunning_ ? stopStopwatch(nowMs) : startStopwatch(nowMs);
+      } else {
+        setNightRed(!config().runtime.nightRed);
+      }
+      break;
+    case RotaryKnob::Press::HOLD:
+      if (mode == ClockMode::TIMER) {
+        resetTimer();
+      } else if (mode == ClockMode::STOPWATCH) {
+        resetStopwatch(nowMs);
+      }
+      break;
+    default:
+      break;
+  }
 }
 
 void HostRuntime::setEffect(EffectMode effect) {
@@ -459,6 +570,13 @@ void HostRuntime::renderIfNeeded(uint32_t nowMs) {
 
   SegmentFrame frame;
   compiler_.compile(config(), context, frame);
+  if (config().runtime.nightRed) {
+    for (uint8_t index = 0; index < kLogicalCount; ++index) {
+      RgbColor& c = frame.logicalColors[index];
+      const bool lit = (c.r | c.g | c.b) != 0;
+      c = makeRgbColor(lit ? kNightRedLevel : 0, 0, 0);
+    }
+  }
   renderer_.sendFrame24(frame);
   lastRenderMs_ = nowMs;
   renderDirty_ = false;
@@ -467,6 +585,7 @@ void HostRuntime::renderIfNeeded(uint32_t nowMs) {
 void HostRuntime::update(uint32_t nowMs) {
   renderer_.poll(nowMs);
   handleRendererEvents(nowMs);
+  handleKnob(nowMs);
   maintainRendererLink(nowMs);
   updateTimeSource(nowMs);
   updateTimerState(nowMs);
@@ -479,7 +598,7 @@ void HostRuntime::update(uint32_t nowMs) {
 }
 
 void HostRuntime::writeInfoJson(JsonObject root) const {
-  root["board"] = "ESP32-WROOM-32E";
+  root["board"] = "ESP32 DevKit (WROVER-B)";
   root["role"] = "host";
   root["name"] = CLOCK_DEVICE_NAME;
   root["protocol"] = "ClockHost/1";

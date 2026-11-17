@@ -42,7 +42,10 @@ void WebUiServer::configureWiFi() {
   }
 
   if (network.hostname.length() > 0) {
-    MDNS.begin(network.hostname.c_str());
+    if (MDNS.begin(network.hostname.c_str())) {
+      MDNS.addService("http", "tcp", 80);
+      MDNS.addService("clockwinder", "tcp", ProjectConfig::kWinderTcpPort);
+    }
   }
 }
 

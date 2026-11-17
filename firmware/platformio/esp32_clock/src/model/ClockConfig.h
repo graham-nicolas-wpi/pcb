@@ -56,7 +56,7 @@ struct NetworkSettings {
   bool staEnabled = false;
   String staSsid;
   String staPassword;
-  String hostname = "neopixel-clock";
+  String hostname = "esp32-clock";
 };
 
 struct RendererLinkSettings {
@@ -82,6 +82,7 @@ struct RuntimeSettings {
   EffectMode effect = EffectMode::NONE;
   uint8_t brightness = 96;
   uint8_t colonBrightness = 160;
+  bool nightRed = false;
   bool rainbowEnabled = false;
   bool calibrationMode = false;
   uint8_t calibrationCursor = 0;

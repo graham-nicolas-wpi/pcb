@@ -4,6 +4,7 @@
 #include <RTClib.h>
 
 #include "../host/LeonardoClient.h"
+#include "../input/RotaryKnob.h"
 #include "../render/FrameCompiler.h"
 #include "../storage/SettingsStore.h"
 
@@ -19,6 +20,15 @@ class HostRuntime {
   void writeRtcJson(JsonObject root, uint32_t nowMs) const;
   void writeRendererJson(JsonObject root, uint32_t nowMs) const;
 
+  // Read-only accessors for the clockWinder TCP bridge.
+  bool timerRunning() const { return timerRunning_; }
+  bool stopwatchRunning() const { return stopwatchRunning_; }
+  uint32_t timerRemainingSeconds() const { return (timerRemainingMs_ + 999UL) / 1000UL; }
+  bool rendererOnline(uint32_t nowMs) const { return renderer_.isOnline(nowMs); }
+  const LeonardoClient& renderer() const { return renderer_; }
+  DateTime now(uint32_t nowMs) const { return currentTime(nowMs); }
+  const char* timeSource() const { return timeSourceName(); }
+
   void reloadFromConfig();
   bool saveConfigNow(String* error = nullptr);
   bool loadConfigNow(String* error = nullptr);
@@ -29,6 +39,7 @@ class HostRuntime {
   void setTimerFormat(TimerDisplayFormat format);
   void setBrightness(uint8_t brightness);
   void setColonBrightness(uint8_t brightness);
+  void setNightRed(bool enabled);
   void setEffect(EffectMode effect);
   bool setActivePreset(const String& id);
   bool setActiveFace(const String& id);
@@ -70,6 +81,9 @@ class HostRuntime {
   void updateTimeSource(uint32_t nowMs);
   void updateTimerState(uint32_t nowMs);
   void renderIfNeeded(uint32_t nowMs);
+  void handleKnob(uint32_t nowMs);
+  void knobBrightness(int16_t detents, uint32_t nowMs);
+  void knobTimerLength(int16_t detents);
   DateTime fallbackNow(uint32_t nowMs) const;
   DateTime currentTime(uint32_t nowMs) const;
   const char* timeSourceName() const;
@@ -78,6 +92,8 @@ class HostRuntime {
   SettingsStore& store_;
   LeonardoClient& renderer_;
   FrameCompiler compiler_;
+  RotaryKnob knob_;
+  uint32_t lastKnobTurnMs_ = 0;
   bool renderDirty_ = true;
   bool persistPending_ = false;
   uint32_t lastSaveRequestMs_ = 0;
