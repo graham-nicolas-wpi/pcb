@@ -2,6 +2,13 @@
 #include <Arduino.h>
 #include <RTClib.h>
 #include <Wire.h>
+#include <avr/power.h>
+
+// Boards flashed through the chip's factory USB (DFU) bootloader keep the
+// factory CKDIV8 fuse, which boots the CPU at 16 MHz / 8. Arduino's main()
+// calls initVariant() before USB starts, so undo the divider there.
+// Harmless on boards with the Arduino (Caterina) bootloader.
+void initVariant() { clock_prescale_set(clock_div_1); }
 
 #include "src/calibration/ClockProtocol.h"
 #include "src/display/LedMap.h"
