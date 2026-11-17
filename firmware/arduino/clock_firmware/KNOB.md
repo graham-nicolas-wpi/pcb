@@ -10,7 +10,7 @@
 | +   | ICSP header **J3 pin 2** (5V), or share top header J1 pin 1 with the RTC | 5V |
 | GND | top header **J1 pin 3** (or ICSP J3 pin 6) | GND |
 
-J2 pin 1 is the square pad (GND) at the left end of the bottom header, pins 2/3 already go to the RTC.
+J2 pin 1 is the square pad (GND); pins 2 and 3 already go to the RTC.
 D0/D1 are the hardware UART pins, which this firmware does not use (USB serial is separate), and both
 have their own interrupts so fast spins are not missed. The JTAG pins (A0–A3) are not needed.
 
